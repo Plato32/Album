@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../utils/db';
+import { db, getActiveAlbumId } from '../utils/db';
 import { Gift, Timer, Package, Sparkles, CheckCircle, RefreshCw } from 'lucide-react';
 import PremiumCard from './PremiumCard';
 import { playTearSound, playSparkleSound } from '../utils/sounds';
@@ -47,7 +47,9 @@ export default function PackOpener({ refreshProgress }) {
   }, [lastClaimed]);
 
   const loadPackInfo = async () => {
-    const status = await db.packsInfo.get('status');
+    const activeId = getActiveAlbumId();
+    if (!activeId) return;
+    const status = await db.packsInfo.get(`status-${activeId}`);
     if (status) {
       setPacksAvailable(status.packsAvailable);
       setLastClaimed(status.lastClaimed);
@@ -59,10 +61,12 @@ export default function PackOpener({ refreshProgress }) {
 
   const handleClaimPack = async () => {
     if (timeRemaining > 0) return;
+    const activeId = getActiveAlbumId();
+    if (!activeId) return;
 
     const now = Date.now();
     await db.packsInfo.put({
-      id: 'status',
+      id: `status-${activeId}`,
       lastClaimed: now,
       packsAvailable: packsAvailable + 1
     });
@@ -74,8 +78,11 @@ export default function PackOpener({ refreshProgress }) {
 
   // Cheat code button to instantly get a pack for testing/demo purposes
   const handleGetCheatPack = async () => {
+    const activeId = getActiveAlbumId();
+    if (!activeId) return;
+
     await db.packsInfo.put({
-      id: 'status',
+      id: `status-${activeId}`,
       lastClaimed: lastClaimed,
       packsAvailable: packsAvailable + 1
     });
@@ -85,7 +92,10 @@ export default function PackOpener({ refreshProgress }) {
   const handleOpenPack = async () => {
     if (packsAvailable <= 0 || isOpening) return;
 
-    const allStickers = await db.stickers.toArray();
+    const activeId = getActiveAlbumId();
+    if (!activeId) return;
+
+    const allStickers = await db.stickers.where('albumId').equals(activeId).toArray();
     if (allStickers.length === 0) {
       alert('Primero debes crear o cargar un álbum en la sección "Creador de Álbum".');
       return;
@@ -115,7 +125,8 @@ export default function PackOpener({ refreshProgress }) {
       inventoryUpdates.push({
         stickerId: sticker.id,
         owned: (invItem?.owned || 0) + 1,
-        pasted: invItem?.pasted || false
+        pasted: invItem?.pasted || false,
+        albumId: activeId
       });
     }
 
@@ -126,12 +137,17 @@ export default function PackOpener({ refreshProgress }) {
 
     // Save pack claim info decrement
     await db.packsInfo.put({
-      id: 'status',
+      id: `status-${activeId}`,
       lastClaimed,
       packsAvailable: packsAvailable - 1
     });
 
     setPacksAvailable(prev => prev - 1);
+
+    // Record pack opened metrics for achievements in localStorage
+    const key = `packs_opened_${activeId}`;
+    const opened = parseInt(localStorage.getItem(key) || '0', 10);
+    localStorage.setItem(key, String(opened + 1));
 
     // Map stickers with their duplicate/new status
     const cards = selectedStickers.map((sticker, idx) => ({

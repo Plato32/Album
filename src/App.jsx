@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { db, initPacksInfo, getAlbumProgress } from './utils/db';
+import { db, initPacksInfo, getAlbumProgress, getActiveAlbumId } from './utils/db';
 import AlbumCreator from './components/AlbumCreator';
 import AlbumGrid from './components/AlbumGrid';
 import PackOpener from './components/PackOpener';
 import TradeCenter from './components/TradeCenter';
-import { BookOpen, Package, ArrowLeftRight, Sparkles, BookMarked, HelpCircle } from 'lucide-react';
+import LibraryManager from './components/LibraryManager';
+import Achievements from './components/Achievements';
+import { BookOpen, Package, ArrowLeftRight, Sparkles, BookMarked, HelpCircle, Trophy } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('album');
@@ -32,7 +34,20 @@ export default function App() {
   };
 
   const checkActiveAlbum = async () => {
-    const metadata = await db.albumMetadata.get('active');
+    const activeId = getActiveAlbumId();
+    let metadata = null;
+    if (activeId) {
+      metadata = await db.albumMetadata.get(activeId);
+    }
+
+    if (!metadata) {
+      const all = await db.albumMetadata.toArray();
+      if (all.length > 0) {
+        metadata = all[0];
+        localStorage.setItem('activeAlbumId', metadata.id);
+      }
+    }
+
     if (metadata) {
       setActiveAlbum(metadata);
       if (metadata.albumColor) {
@@ -40,24 +55,31 @@ export default function App() {
       } else {
         document.body.className = 'theme-color-gold';
       }
-      await refreshProgress();
-      setActiveTab('album');
+      await refreshProgress(metadata.id);
+      setActiveTab(prev => (prev === 'creator' || prev === 'library') ? prev : 'album');
     } else {
       setActiveAlbum(null);
       setActiveTab('creator'); // Default to creator if empty
     }
   };
 
-  const refreshProgress = async () => {
-    const prog = await getAlbumProgress();
+  const refreshProgress = async (albumId) => {
+    const activeId = albumId || getActiveAlbumId();
+    const prog = await getAlbumProgress(activeId);
     if (prog) {
       setProgress(prog);
     }
 
     // Refresh packs badge count
-    const status = await db.packsInfo.get('status');
-    if (status) {
-      setUnopenedPacksBadge(status.packsAvailable);
+    if (activeId) {
+      const status = await db.packsInfo.get(`status-${activeId}`);
+      if (status) {
+        setUnopenedPacksBadge(status.packsAvailable);
+      } else {
+        setUnopenedPacksBadge(0);
+      }
+    } else {
+      setUnopenedPacksBadge(0);
     }
   };
 
@@ -117,6 +139,21 @@ export default function App() {
             </button>
 
             <button 
+              onClick={() => setActiveTab('achievements')}
+              disabled={!activeAlbum}
+              className={`nav-link-btn ${activeTab === 'achievements' ? 'nav-link-btn-active' : ''}`}
+            >
+              <Trophy size={15} /> Logros 🏆
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('library')}
+              className={`nav-link-btn ${activeTab === 'library' ? 'nav-link-btn-active' : ''}`}
+            >
+              <BookMarked size={15} /> Biblioteca 📚
+            </button>
+
+            <button 
               onClick={() => setActiveTab('creator')}
               className={`nav-link-btn ${activeTab === 'creator' ? 'nav-link-btn-active' : ''}`}
             >
@@ -128,8 +165,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-grow">
-        {/* Force Creator view if no album loaded */}
-        {!activeAlbum && activeTab !== 'creator' ? (
+        {/* Force Library / Creator view if no album loaded */}
+        {!activeAlbum && (activeTab !== 'creator' && activeTab !== 'library') ? (
           <div className="welcome-gate glass-panel-heavy">
             <div className="welcome-icon-box">
               <BookOpen size={40} />
@@ -140,12 +177,20 @@ export default function App() {
                 ¡Para empezar a coleccionar, necesitas crear un nuevo álbum con tus fotos o cargar un archivo `.json` de álbum que te hayan compartido!
               </p>
             </div>
-            <button 
-              onClick={() => setActiveTab('creator')}
-              className="btn-primary w-full"
-            >
-              Ir al Creador de Álbumes
-            </button>
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <button 
+                onClick={() => setActiveTab('library')}
+                className="btn-secondary flex-grow"
+              >
+                Ir a Biblioteca
+              </button>
+              <button 
+                onClick={() => setActiveTab('creator')}
+                className="btn-primary flex-grow"
+              >
+                Crear Álbum
+              </button>
+            </div>
           </div>
         ) : (
           /* Render components depending on current tab */
@@ -167,9 +212,28 @@ export default function App() {
                 refreshProgress={refreshProgress} 
               />
             )}
+            {activeTab === 'achievements' && (
+              <Achievements />
+            )}
+            {activeTab === 'library' && (
+              <LibraryManager 
+                onAlbumActivated={async (albumId) => {
+                  if (albumId) {
+                    localStorage.setItem('activeAlbumId', albumId);
+                  } else {
+                    localStorage.removeItem('activeAlbumId');
+                  }
+                  await checkActiveAlbum();
+                }}
+                onNavigateToCreator={() => setActiveTab('creator')}
+              />
+            )}
             {activeTab === 'creator' && (
               <AlbumCreator 
-                onAlbumLoaded={checkActiveAlbum} 
+                onAlbumLoaded={async () => {
+                  await checkActiveAlbum();
+                  setActiveTab('album');
+                }} 
                 activeAlbumName={activeAlbum?.name}
               />
             )}

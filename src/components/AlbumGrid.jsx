@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, clearActiveAlbum, layoutStickers } from '../utils/db';
-import { ChevronLeft, ChevronRight, Sparkles, Plus, Check, Search, Palette, Puzzle, Move } from 'lucide-react';
+import { db, clearActiveAlbum, layoutStickers, getActiveAlbumId } from '../utils/db';
+import { ChevronLeft, ChevronRight, Sparkles, Plus, Check, Search, Palette, Puzzle, Move, Compass, Printer, StickyNote, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import PremiumCard from './PremiumCard';
 import { playPasteSound } from '../utils/sounds';
+
 export default function AlbumGrid({ progress, refreshProgress }) {
   const [stickers, setStickers] = useState([]);
   const [inventory, setInventory] = useState({});
@@ -22,6 +23,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [layoutStyle, setLayoutStyle] = useState('scrapbook'); // 'scrapbook' or 'grid'
   const [draggedOverPage, setDraggedOverPage] = useState(null);
+  
+  // Scopes and premium custom features states
+  const [notes, setNotes] = useState([]);
 
   useEffect(() => {
     document.body.className = `theme-color-${albumColor}`;
@@ -35,11 +39,15 @@ export default function AlbumGrid({ progress, refreshProgress }) {
   }, [filter, searchQuery]);
 
   const loadAlbumData = async () => {
-    const allStickers = await db.stickers.toArray();
-    const allInventory = await db.inventory.toArray();
+    const activeId = getActiveAlbumId() || 'album-legacy';
+    const allStickers = await db.stickers.where('albumId').equals(activeId).toArray();
+    const allInventory = await db.inventory.where('albumId').equals(activeId).toArray();
+    const allNotes = await db.notes.where('albumId').equals(activeId).toArray();
+    
+    setNotes(allNotes);
     
     // Load metadata settings first to check layoutStyle
-    const metadata = await db.albumMetadata.get('active');
+    const metadata = await db.albumMetadata.get(activeId);
     const currentLayoutStyle = metadata ? (metadata.layoutStyle || 'scrapbook') : 'scrapbook';
     
     console.log("CARGANDO ALBUM:", {
@@ -65,7 +73,11 @@ export default function AlbumGrid({ progress, refreshProgress }) {
       
       if (hasDiff) {
         verifiedStickers = computed;
-        await db.stickers.clear();
+        // Delete only the active album stickers and insert computed ones
+        const stickersToDelete = await db.stickers.where('albumId').equals(activeId).toArray();
+        for (const s of stickersToDelete) {
+          await db.stickers.delete(s.id);
+        }
         await db.stickers.bulkAdd(verifiedStickers);
       }
     }
@@ -121,9 +133,131 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     }
   };
 
+
+
+  // --- STICKY NOTES INTERACTION HANDLERS ---
+  const handleAddNote = async (pageIdx) => {
+    const activeId = getActiveAlbumId() || 'album-legacy';
+    const newNote = {
+      id: `note-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      albumId: activeId,
+      page: pageIdx,
+      text: '¡Escribe aquí!',
+      x: 35,
+      y: 35,
+      color: 'yellow',
+      rotation: Math.floor(Math.random() * 10) - 5
+    };
+    await db.notes.add(newNote);
+    setNotes(prev => [...prev, newNote]);
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    await db.notes.delete(noteId);
+    setNotes(prev => prev.filter(n => n.id !== noteId));
+  };
+
+  const handleUpdateNote = async (noteId, updates) => {
+    await db.notes.update(noteId, updates);
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
+  };
+
+  const handleNoteMouseDown = (e, note) => {
+    if (!isEditMode) return;
+    const tagName = e.target.tagName.toLowerCase();
+    if (tagName === 'textarea' || tagName === 'select' || tagName === 'option' || tagName === 'button') {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pageElement = e.currentTarget.offsetParent;
+    if (!pageElement) return;
+    const rect = pageElement.getBoundingClientRect();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const startPos = {
+      x: note.x || 0,
+      y: note.y || 0
+    };
+
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+
+      const pctDeltaX = (deltaX / rect.width) * 100;
+      const pctDeltaY = (deltaY / rect.height) * 100;
+
+      let newX = Number((startPos.x + pctDeltaX).toFixed(2));
+      let newY = Number((startPos.y + pctDeltaY).toFixed(2));
+
+      newX = Math.max(0, Math.min(85, newX));
+      newY = Math.max(0, Math.min(85, newY));
+
+      handleUpdateNote(note.id, { x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleNoteTouchStart = (e, note) => {
+    if (!isEditMode) return;
+    const tagName = e.target.tagName.toLowerCase();
+    if (tagName === 'textarea' || tagName === 'select' || tagName === 'option' || tagName === 'button') {
+      return;
+    }
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    const pageElement = e.currentTarget.offsetParent;
+    if (!pageElement) return;
+    const rect = pageElement.getBoundingClientRect();
+
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+
+    const startPos = {
+      x: note.x || 0,
+      y: note.y || 0
+    };
+
+    const handleTouchMove = (moveEvent) => {
+      const currentTouch = moveEvent.touches[0];
+      const deltaX = currentTouch.clientX - startX;
+      const deltaY = currentTouch.clientY - startY;
+
+      const pctDeltaX = (deltaX / rect.width) * 100;
+      const pctDeltaY = (deltaY / rect.height) * 100;
+
+      let newX = Number((startPos.x + pctDeltaX).toFixed(2));
+      let newY = Number((startPos.y + pctDeltaY).toFixed(2));
+
+      newX = Math.max(0, Math.min(85, newX));
+      newY = Math.max(0, Math.min(85, newY));
+
+      handleUpdateNote(note.id, { x: newX, y: newY });
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
+  // --- PASTING HANDLER ---
   const handlePasteSticker = async (stickerId) => {
-    const id = Number(stickerId);
-    const invItem = inventory[id];
+    const invItem = inventory[stickerId];
     if (!invItem || invItem.owned <= 0 || invItem.pasted) return;
 
     // Paste the sticker (pasted = true) using put for maximum IndexedDB type safety
@@ -146,13 +280,15 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     // Update UI state
     setInventory(prev => ({
       ...prev,
-      [id]: { ...prev[id], pasted: true }
+      [stickerId]: { ...prev[stickerId], pasted: true }
     }));
 
-    setRecentlyPastedId(id);
+    setRecentlyPastedId(stickerId);
     setTimeout(() => {
       setRecentlyPastedId(null);
     }, 1000);
+
+    setHighlightedStickerId(null);
 
     refreshProgress();
   };
@@ -172,73 +308,19 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     setZoomScale(1.0);
   };
 
-  const handleZoomSet = async (stickersList, splitType) => {
-    try {
-      const imgPromises = stickersList.map(part => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.src = part.image;
-          img.onload = () => resolve({ img, part });
-        });
-      });
+  const handleZoomSet = (stickersList, splitType) => {
+    const numbers = stickersList.map(s => s.id);
+    const isRare = stickersList.some(s => s.isRare);
+    const sortedParts = [...stickersList].sort((a, b) => (a.splitPart || '').localeCompare(b.splitPart || ''));
 
-      const loadedParts = await Promise.all(imgPromises);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      if (splitType === 'horizontal-pair' || splitType === 'horizontal') {
-        const [{ img: imgA }, { img: imgB }] = loadedParts;
-        canvas.width = imgA.width + imgB.width;
-        canvas.height = Math.max(imgA.height, imgB.height);
-        ctx.drawImage(imgA, 0, 0);
-        ctx.drawImage(imgB, imgA.width, 0);
-      } else if (splitType === 'vertical-pair' || splitType === 'vertical') {
-        const partA = loadedParts.find(p => p.part.splitPart === 'A') || loadedParts[0];
-        const partB = loadedParts.find(p => p.part.splitPart === 'B') || loadedParts[1];
-        canvas.width = Math.max(partA.img.width, partB.img.width);
-        canvas.height = partA.img.height + partB.img.height;
-        ctx.drawImage(partA.img, 0, 0);
-        ctx.drawImage(partB.img, 0, partA.img.height);
-      } else if (splitType === 'quad') {
-        const partA = loadedParts.find(p => p.part.splitPart === 'A');
-        const partB = loadedParts.find(p => p.part.splitPart === 'B');
-        const partC = loadedParts.find(p => p.part.splitPart === 'C');
-        const partD = loadedParts.find(p => p.part.splitPart === 'D');
-        if (!partA || !partB || !partC || !partD) return;
-
-        const imgA = partA.img;
-        const imgB = partB.img;
-        const imgC = partC.img;
-        const imgD = partD.img;
-
-        const topW = imgA.width + imgB.width;
-        const bottomW = imgC.width + imgD.width;
-        canvas.width = Math.max(topW, bottomW);
-        canvas.height = Math.max(imgA.height, imgC.height) + Math.max(imgB.height, imgD.height);
-
-        ctx.drawImage(imgA, 0, 0);
-        ctx.drawImage(imgB, imgA.width, 0);
-        ctx.drawImage(imgC, 0, imgA.height);
-        ctx.drawImage(imgD, imgC.width, imgB.height);
-      } else {
-        return;
-      }
-
-      const mergedImage = canvas.toDataURL('image/jpeg');
-      const numbers = stickersList.map(s => s.id);
-      const isRare = stickersList.some(s => s.isRare);
-
-      setZoomedSticker({
-        name: getUnifiedName(stickersList[0].name),
-        image: mergedImage,
-        isRare,
-        isPanorama: true,
-        splitType,
-        numbers
-      });
-    } catch (err) {
-      console.error('Error stitching stickers for zoom view:', err);
-    }
+    setZoomedSticker({
+      name: getUnifiedName(stickersList[0].name),
+      isRare,
+      isPanorama: true,
+      splitType,
+      numbers,
+      parts: sortedParts
+    });
   };
 
   const stickersPerPage = progress.stickersPerPage || 6;
@@ -386,10 +468,12 @@ export default function AlbumGrid({ progress, refreshProgress }) {
   };
 
   const handleTestGetPack = async () => {
-    const status = await db.packsInfo.get('status');
+    const activeId = getActiveAlbumId() || 'album-legacy';
+    const packsId = `status-${activeId}`;
+    const status = await db.packsInfo.get(packsId);
     const currentPacks = status ? status.packsAvailable : 0;
     await db.packsInfo.put({
-      id: 'status',
+      id: packsId,
       lastClaimed: status ? status.lastClaimed : 0,
       packsAvailable: currentPacks + 1
     });
@@ -398,14 +482,16 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
   const handleTestCompleteAlbum = async () => {
     if (window.confirm('¿Seguro que quieres completar todo el álbum automáticamente para pruebas?')) {
-      const allStickers = await db.stickers.toArray();
+      const activeId = getActiveAlbumId() || 'album-legacy';
+      const allStickers = await db.stickers.where('albumId').equals(activeId).toArray();
+      
       const completedInventory = allStickers.map(s => ({
         stickerId: s.id,
         owned: 1,
-        pasted: true
+        pasted: true,
+        albumId: activeId
       }));
-      await db.inventory.clear();
-      await db.inventory.bulkAdd(completedInventory);
+      await db.inventory.bulkPut(completedInventory);
       await loadAlbumData();
       refreshProgress();
       confetti({
@@ -418,13 +504,14 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
   const handleTestRestart = async () => {
     if (window.confirm('¿Seguro que quieres despegar todas las figuritas para volver a pegarlas?')) {
-      const allInventory = await db.inventory.toArray();
+      const activeId = getActiveAlbumId() || 'album-legacy';
+      const allInventory = await db.inventory.where('albumId').equals(activeId).toArray();
+      
       const resetInventory = allInventory.map(item => ({
         ...item,
         pasted: false
       }));
-      await db.inventory.clear();
-      await db.inventory.bulkAdd(resetInventory);
+      await db.inventory.bulkPut(resetInventory);
       await loadAlbumData();
       refreshProgress();
     }
@@ -541,15 +628,14 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     const stickerIdStr = e.dataTransfer.getData('text/plain');
     if (!stickerIdStr) return;
     
-    const stickerId = Number(stickerIdStr);
-    const targetSticker = stickers.find(s => s.id === stickerId);
+    const targetSticker = stickers.find(s => String(s.id) === stickerIdStr);
     if (!targetSticker) return;
 
-    const inv = inventory[stickerId];
+    const inv = inventory[targetSticker.id];
     if (!inv || inv.owned <= 0 || inv.pasted) return;
 
     // Paste the sticker
-    await handlePasteSticker(stickerId);
+    await handlePasteSticker(targetSticker.id);
 
     // Calculate positions if in scrapbook mode
     if (layoutStyle === 'scrapbook') {
@@ -614,24 +700,23 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                   name={sticker.name} 
                   isRare={sticker.isRare} 
                 />
-                
-                {/* Floating duplicate count overlay inside the card area */}
-                {duplicateCount > 0 && (
-                  <div className="slot-badge-container" style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35, display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <span className="badge-dupe" style={{ fontSize: '9px', padding: '2px 5px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
-                      +{duplicateCount}
-                    </span>
-                  </div>
-                )}
               </div>
             ) : (
               <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                <div className="slot-silhouette w-full h-full" style={{ borderRadius: '8px' }}>
+                <div 
+                  onClick={() => {
+                    if (hasUnpasted && !isEditMode) {
+                      setHighlightedStickerId(prev => prev === sticker.id ? null : sticker.id);
+                    }
+                  }}
+                  className={`slot-silhouette w-full h-full ${hasUnpasted ? 'cursor-pointer' : ''}`}
+                  style={{ borderRadius: '8px' }}
+                >
                   <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                 </div>
 
                 {hasUnpasted && !isEditMode && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted ? 1 : undefined, pointerEvents: isHighlighted ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(sticker.id); }}
@@ -652,16 +737,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               N° {String(sticker.id).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                 {sticker.name}
               </span>
-              {!isPasted && duplicateCount > 0 && (
-                <div className="slot-badge-container" style={{ position: 'static' }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                    +{duplicateCount}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -755,10 +833,19 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           gridColumn: gridColumnSpan,
           gridRow: gridRowSpan,
         }}
-      >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
-          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%' }}>
-            <div className="pair-slots-container" style={{ display: 'flex', flexDirection: isHorizontal ? 'row' : 'column', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
+          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div 
+              className="pair-slots-container" 
+              style={{ 
+                display: 'flex', 
+                flexDirection: isHorizontal ? 'row' : 'column', 
+                width: isHorizontal ? 'calc(100% - 1.25rem)' : '100%', 
+                height: isHorizontal ? '100%' : 'calc(100% - 1.25rem)', 
+                gap: '0px', 
+                overflow: 'hidden' 
+              }}
+            >
               <div className="sub-slot" style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
                 {isPasted1 ? (
                   <div 
@@ -771,20 +858,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted1 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s1.id ? null : s1.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted1 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {/* Sub-slot badges overlay */}
-                {isPasted1 && dup1 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
-                  </div>
-                )}
-
                 {hasUnpasted1 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined, pointerEvents: isHighlighted1 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
@@ -813,20 +901,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted2 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s2.id ? null : s2.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted2 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {/* Sub-slot badges overlay */}
-                {isPasted2 && dup2 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
-                  </div>
-                )}
-
                 {hasUnpasted2 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined, pointerEvents: isHighlighted2 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
@@ -846,16 +935,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                 {getUnifiedName(s1.name)}
               </span>
-              <div className="slot-badge-container" style={{ position: 'static' }}>
-                {(dup1 + dup2) > 0 && (
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                    +{dup1 + dup2}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -941,8 +1023,8 @@ export default function AlbumGrid({ progress, refreshProgress }) {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
-          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
+          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: 'calc(100% - 1.25rem)', height: 'calc(100% - 1.25rem)', gap: '0px', overflow: 'hidden' }}>
               <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 {isPasted1 ? (
                   <div 
@@ -955,19 +1037,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted1 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s1.id ? null : s1.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted1 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {isPasted1 && dup1 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
-                  </div>
-                )}
-
                 {hasUnpasted1 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined, pointerEvents: isHighlighted1 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
@@ -992,19 +1076,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted2 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s2.id ? null : s2.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted2 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {isPasted2 && dup2 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
-                  </div>
-                )}
-
                 {hasUnpasted2 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined, pointerEvents: isHighlighted2 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
@@ -1029,19 +1115,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s3.image} name={s3.name} isRare={s3.isRare} style={styleOverride3} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted3 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s3.id ? null : s3.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted3 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {isPasted3 && dup3 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup3}</span>
-                  </div>
-                )}
-
                 {hasUnpasted3 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined, pointerEvents: isHighlighted3 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s3.id); }}
@@ -1066,19 +1154,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <PremiumCard image={s4.image} name={s4.name} isRare={s4.isRare} style={styleOverride4} imgStyle={{ objectFit: 'fill' }} />
                   </div>
                 ) : (
-                  <div className="slot-silhouette" style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}>
+                  <div 
+                    onClick={() => {
+                      if (hasUnpasted4 && !isEditMode) {
+                        setHighlightedStickerId(prev => prev === s4.id ? null : s4.id);
+                      }
+                    }}
+                    className={`slot-silhouette ${hasUnpasted4 ? 'cursor-pointer' : ''}`}
+                    style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}
+                  >
                     <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                   </div>
                 )}
 
-                {isPasted4 && dup4 > 0 && (
-                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup4}</span>
-                  </div>
-                )}
-
                 {hasUnpasted4 && (
-                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined }}>
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined, pointerEvents: isHighlighted4 ? 'auto' : undefined }}>
                     <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handlePasteSticker(s4.id); }}
@@ -1098,16 +1188,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                 {getUnifiedName(s1.name)}
               </span>
-              <div className="slot-badge-container" style={{ position: 'static' }}>
-                {(dup1 + dup2 + dup3 + dup4) > 0 && (
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                    +{dup1 + dup2 + dup3 + dup4}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -1380,13 +1463,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             />
           </div>
         ) : (
-          <div className="slot-silhouette w-full h-full" style={{ borderRadius: '10px' }}>
+          <div 
+            onClick={() => {
+              if (hasUnpasted && !isEditMode) {
+                setHighlightedStickerId(prev => prev === sticker.id ? null : sticker.id);
+              }
+            }}
+            className={`slot-silhouette w-full h-full ${hasUnpasted ? 'cursor-pointer' : ''}`}
+            style={{ borderRadius: '10px' }}
+          >
             <span className="font-display font-extrabold text-sm text-slate-500">?</span>
           </div>
         )}
 
         {hasUnpasted && !isEditMode && (
-          <div className="slot-paste-overlay" style={{ opacity: isHighlighted ? 1 : undefined }}>
+          <div className="slot-paste-overlay" style={{ opacity: isHighlighted ? 1 : undefined, pointerEvents: isHighlighted ? 'auto' : undefined }}>
             <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
             <button 
               onClick={(e) => { e.stopPropagation(); handlePasteSticker(sticker.id); }}
@@ -1411,16 +1502,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           N° {String(sticker.id).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
             {sticker.name}
           </span>
-          <div className="slot-badge-container" style={{ position: 'static' }}>
-            {duplicateCount > 0 && (
-              <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                +{duplicateCount}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -1493,12 +1577,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
             </div>
           ) : (
-            <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}>
+            <div 
+              onClick={() => {
+                if (hasUnpasted1 && !isEditMode) {
+                  setHighlightedStickerId(prev => prev === s1.id ? null : s1.id);
+                }
+              }}
+              className={`slot-silhouette ${hasUnpasted1 ? 'cursor-pointer' : ''}`}
+              style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}
+            >
               <span className="font-display font-extrabold text-sm text-slate-500">?</span>
             </div>
           )}
           {hasUnpasted1 && !isEditMode && (
-            <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+            <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined, pointerEvents: isHighlighted1 ? 'auto' : undefined }}>
               <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
               <button 
                 onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
@@ -1529,12 +1621,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
             </div>
           ) : (
-            <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}>
+            <div 
+              onClick={() => {
+                if (hasUnpasted2 && !isEditMode) {
+                  setHighlightedStickerId(prev => prev === s2.id ? null : s2.id);
+                }
+              }}
+              className={`slot-silhouette ${hasUnpasted2 ? 'cursor-pointer' : ''}`}
+              style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}
+            >
               <span className="font-display font-extrabold text-sm text-slate-500">?</span>
             </div>
           )}
           {hasUnpasted2 && !isEditMode && (
-            <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+            <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined, pointerEvents: isHighlighted2 ? 'auto' : undefined }}>
               <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
               <button 
                 onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
@@ -1564,16 +1664,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
             {getUnifiedName(s1.name)}
           </span>
-          <div className="slot-badge-container" style={{ position: 'static' }}>
-            {(dup1 + dup2) > 0 && (
-              <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                +{dup1 + dup2}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -1673,12 +1766,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
               </div>
             ) : (
-              <div className="slot-silhouette" style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}>
+              <div 
+                onClick={() => {
+                  if (hasUnpasted1 && !isEditMode) {
+                    setHighlightedStickerId(prev => prev === s1.id ? null : s1.id);
+                  }
+                }}
+                className={`slot-silhouette ${hasUnpasted1 ? 'cursor-pointer' : ''}`}
+                style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}
+              >
                 <span className="font-display font-extrabold text-sm text-slate-500">?</span>
               </div>
             )}
             {hasUnpasted1 && !isEditMode && (
-              <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+              <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined, pointerEvents: isHighlighted1 ? 'auto' : undefined }}>
                 <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
@@ -1705,12 +1806,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
               </div>
             ) : (
-              <div className="slot-silhouette" style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}>
+              <div 
+                onClick={() => {
+                  if (hasUnpasted2 && !isEditMode) {
+                    setHighlightedStickerId(prev => prev === s2.id ? null : s2.id);
+                  }
+                }}
+                className={`slot-silhouette ${hasUnpasted2 ? 'cursor-pointer' : ''}`}
+                style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}
+              >
                 <span className="font-display font-extrabold text-sm text-slate-500">?</span>
               </div>
             )}
             {hasUnpasted2 && !isEditMode && (
-              <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+              <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined, pointerEvents: isHighlighted2 ? 'auto' : undefined }}>
                 <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
@@ -1737,12 +1846,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <PremiumCard image={s3.image} name={s3.name} isRare={s3.isRare} style={styleOverride3} imgStyle={{ objectFit: 'fill' }} />
               </div>
             ) : (
-              <div className="slot-silhouette" style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}>
+              <div 
+                onClick={() => {
+                  if (hasUnpasted3 && !isEditMode) {
+                    setHighlightedStickerId(prev => prev === s3.id ? null : s3.id);
+                  }
+                }}
+                className={`slot-silhouette ${hasUnpasted3 ? 'cursor-pointer' : ''}`}
+                style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}
+              >
                 <span className="font-display font-extrabold text-sm text-slate-500">?</span>
               </div>
             )}
             {hasUnpasted3 && !isEditMode && (
-              <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined }}>
+              <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined, pointerEvents: isHighlighted3 ? 'auto' : undefined }}>
                 <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handlePasteSticker(s3.id); }}
@@ -1769,12 +1886,20 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <PremiumCard image={s4.image} name={s4.name} isRare={s4.isRare} style={styleOverride4} imgStyle={{ objectFit: 'fill' }} />
               </div>
             ) : (
-              <div className="slot-silhouette" style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}>
+              <div 
+                onClick={() => {
+                  if (hasUnpasted4 && !isEditMode) {
+                    setHighlightedStickerId(prev => prev === s4.id ? null : s4.id);
+                  }
+                }}
+                className={`slot-silhouette ${hasUnpasted4 ? 'cursor-pointer' : ''}`}
+                style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}
+              >
                 <span className="font-display font-extrabold text-sm text-slate-500">?</span>
               </div>
             )}
             {hasUnpasted4 && !isEditMode && (
-              <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined }}>
+              <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined, pointerEvents: isHighlighted4 ? 'auto' : undefined }}>
                 <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handlePasteSticker(s4.id); }}
@@ -1814,16 +1939,9 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+          <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
             {getUnifiedName(s1.name)}
           </span>
-          <div className="slot-badge-container" style={{ position: 'static' }}>
-            {(dup1 + dup2 + dup3 + dup4) > 0 && (
-              <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                +{dup1 + dup2 + dup3 + dup4}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -1933,6 +2051,68 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             </div>
           );
         })}
+
+        {/* Render Sticky Notes */}
+        {notes.filter(n => n.page === pageIndex).map(note => {
+          const rotation = note.rotation || 0;
+          return (
+            <div
+              key={note.id}
+              className={`sticky-note note-color-${note.color} ${isEditMode ? 'is-editable' : ''}`}
+              style={{
+                position: 'absolute',
+                left: `${note.x}%`,
+                top: `${note.y}%`,
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+                zIndex: 50,
+                cursor: isEditMode ? 'move' : 'default',
+              }}
+              onMouseDown={(e) => handleNoteMouseDown(e, note)}
+              onTouchStart={(e) => handleNoteTouchStart(e, note)}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isEditMode ? (
+                <div className="note-edit-controls" onClick={(e) => e.stopPropagation()}>
+                  <select 
+                    value={note.color} 
+                    onChange={(e) => handleUpdateNote(note.id, { color: e.target.value })}
+                    className="note-color-select"
+                  >
+                    <option value="yellow">💛</option>
+                    <option value="pink">💗</option>
+                    <option value="green">💚</option>
+                    <option value="blue">💙</option>
+                  </select>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteNote(note.id);
+                    }}
+                    className="note-delete-btn"
+                    title="Eliminar Nota"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+              
+              {isEditMode ? (
+                <textarea
+                  value={note.text}
+                  onChange={(e) => handleUpdateNote(note.id, { text: e.target.value })}
+                  className="note-textarea print-hidden"
+                  maxLength={150}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : null}
+              
+              <div className={`note-text-display ${isEditMode ? 'print-only-block' : ''}`}>
+                {note.text}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -1956,7 +2136,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           <div className="flex justify-between items-center mt-3 text-xs text-slate-500 font-semibold flex-wrap gap-2">
             <div className="flex gap-4">
               <span>Fotos Pegadas: {progress.pasted} / {progress.total}</span>
-              <span>Repetidas: {progress.duplicates}</span>
               <span>Únicas: {progress.uniqueOwned}</span>
             </div>
             
@@ -2048,6 +2227,17 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}
               >
                 <Palette size={12} /> Personalizar
+              </button>
+
+
+              {/* Print Album Button */}
+              <button
+                onClick={() => window.print()}
+                className="btn-primary"
+                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}
+                title="Imprimir el álbum completo página por página"
+              >
+                <Printer size={12} /> Imprimir 🖨️
               </button>
             </div>
           </div>
@@ -2266,6 +2456,25 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                   Selecciona una figurita o silueta vacía en la página para cambiar su tamaño, rotación o pasarla de página.
                 </div>
               )}
+
+              {/* Sticky Notes Add Bar */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid rgba(226, 162, 39, 0.2)', paddingTop: '8px', marginTop: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Notas Adhesivas:</span>
+                <button
+                  onClick={() => handleAddNote(currentPage * 2)}
+                  className="btn-secondary"
+                  style={{ padding: '4px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '6px' }}
+                >
+                  <Plus size={10} /> Agregar nota a la izquierda
+                </button>
+                <button
+                  onClick={() => handleAddNote(currentPage * 2 + 1)}
+                  className="btn-secondary"
+                  style={{ padding: '4px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '6px' }}
+                >
+                  <Plus size={10} /> Agregar nota a la derecha
+                </button>
+              </div>
             </div>
           )}
 
@@ -2354,7 +2563,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
 
           {/* --- Unpasted Sticker Drawer --- */}
-          <div className="glass-panel" style={{ marginTop: '2.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '2px dashed #b5ad96', background: '#faf8f2' }}>
+          <div className="glass-panel print-hidden" style={{ marginTop: '2.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '2px dashed #b5ad96', background: '#faf8f2' }}>
             <h3 className="font-display font-black text-base text-slate-800 flex items-center gap-2" style={{ margin: 0 }}>
               <Sparkles size={16} className="text-amber-500" />
               Fotos por pegar ({unpastedStickers.length})
@@ -2447,7 +2656,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
 
           {/* --- Developer Testing Tools --- */}
-          <div className="flex justify-center gap-4 mt-8" style={{ opacity: 0.5, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.5}>
+          <div className="flex justify-center gap-4 mt-8 print-hidden" style={{ opacity: 0.5, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.5}>
             <button
               onClick={handleTestGetPack}
               className="btn-secondary"
@@ -2481,14 +2690,14 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             position: 'fixed',
             inset: 0,
             backgroundColor: 'rgba(5, 6, 11, 0.85)',
-            backdropFilter: 'blur(8px)',
+            backdropFilter: 'blur(3px)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
             padding: '20px',
-            animation: 'fadeIn 0.2s ease forwards'
+            animation: 'fadeIn 0.1s ease-out forwards'
           }}
         >
           <div 
@@ -2511,16 +2720,37 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
               transform: 'scale(1)',
-              animation: 'zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              animation: 'zoomIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               transition: 'max-width 0.2s ease-out'
             }}
           >
-            <PremiumCard 
-              image={zoomedSticker.image}
-              name={zoomedSticker.name}
-              isRare={zoomedSticker.isRare}
-              style={{ width: '100%', height: '100%' }}
-            />
+            {zoomedSticker.isPanorama ? (
+              <div style={{
+                display: zoomedSticker.splitType === 'quad' ? 'grid' : 'flex',
+                gridTemplateColumns: zoomedSticker.splitType === 'quad' ? '1fr 1fr' : undefined,
+                flexDirection: (zoomedSticker.splitType === 'vertical-pair' || zoomedSticker.splitType === 'vertical') ? 'column' : 'row',
+                width: '100%',
+                height: '100%'
+              }}>
+                {zoomedSticker.parts.map(part => (
+                  <div key={part.id} style={{ flex: 1, height: zoomedSticker.splitType === 'quad' ? 'auto' : '100%' }}>
+                    <PremiumCard 
+                      image={part.image}
+                      name={part.name}
+                      isRare={part.isRare}
+                      style={{ width: '100%', height: '100%', borderRadius: 0, border: 'none' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <PremiumCard 
+                image={zoomedSticker.image}
+                name={zoomedSticker.name}
+                isRare={zoomedSticker.isRare}
+                style={{ width: '100%', height: '100%' }}
+              />
+            )}
             {/* Overlay Close Button */}
             <button 
               onClick={closeZoom}
@@ -2558,7 +2788,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               textAlign: 'center', 
               marginTop: '1.5rem', 
               zIndex: 10,
-              animation: 'zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+              animation: 'zoomIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }}
           >
             {/* Size Control Buttons */}
@@ -2591,6 +2821,33 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
         </div>
       )}
+
+      {/* Printable container for page-by-page printing */}
+      <div className="print-only-album-container">
+        {Array.from({ length: totalPages * 2 }).map((_, pageIdx) => (
+          <div 
+            key={pageIdx} 
+            className={`print-page album-page bg-theme-${albumBg} ${layoutStyle === 'grid' ? 'layout-grid' : ''}`}
+            style={{
+              ...(albumBg === 'custom' && customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
+              padding: '2.5rem 1.5rem 1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              height: 'auto',
+              minHeight: layoutStyle === 'grid' ? '620px' : '580px',
+              position: 'relative',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div className="page-num" style={{ position: 'absolute', top: '12px', left: pageIdx % 2 === 0 ? '16px' : 'auto', right: pageIdx % 2 === 1 ? '16px' : 'auto', fontSize: '12px', fontWeight: 'bold', color: 'rgba(0,0,0,0.5)' }}>
+              Pág. {pageIdx + 1}
+            </div>
+            <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {layoutStyle === 'scrapbook' ? renderPage(pageIdx) : renderGridPage(pageIdx)}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

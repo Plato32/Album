@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../utils/db';
+import { db, getActiveAlbumId } from '../utils/db';
 import { Send, Download, FileText, Globe, Key, User, Plus, Trash2, ArrowLeftRight, Check, AlertCircle, Copy } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -39,8 +39,9 @@ export default function TradeCenter({ progress, refreshProgress }) {
   }, []);
 
   const loadTradingData = async () => {
-    const allStickers = await db.stickers.toArray();
-    const allInventory = await db.inventory.toArray();
+    const activeId = getActiveAlbumId() || 'album-legacy';
+    const allStickers = await db.stickers.where('albumId').equals(activeId).toArray();
+    const allInventory = await db.inventory.where('albumId').equals(activeId).toArray();
     
     const map = {};
     allStickers.forEach(s => {
@@ -124,7 +125,8 @@ export default function TradeCenter({ progress, refreshProgress }) {
     if (!decodedProposal) return;
     
     // Double check inventory: do we have the stickers they want?
-    const inventory = await db.inventory.toArray();
+    const activeId = getActiveAlbumId() || 'album-legacy';
+    const inventory = await db.inventory.where('albumId').equals(activeId).toArray();
     const invMap = {};
     inventory.forEach(item => {
       invMap[item.stickerId] = item;
@@ -166,7 +168,11 @@ export default function TradeCenter({ progress, refreshProgress }) {
       };
 
       const base64Confirm = btoa(JSON.stringify(confirmPayload));
-      
+      const activeId = getActiveAlbumId() || 'album-legacy';
+      const tradesKey = `trades_${activeId}`;
+      const currentTrades = parseInt(localStorage.getItem(tradesKey) || '0', 10);
+      localStorage.setItem(tradesKey, String(currentTrades + 1));
+
       confetti({ particleCount: 80, spread: 60 });
       setOfflineStatus({
         error: '',
@@ -195,7 +201,8 @@ export default function TradeCenter({ progress, refreshProgress }) {
     }
 
     try {
-      const inventory = await db.inventory.toArray();
+      const activeId = getActiveAlbumId() || 'album-legacy';
+      const inventory = await db.inventory.where('albumId').equals(activeId).toArray();
       const invMap = {};
       inventory.forEach(item => {
         invMap[item.stickerId] = item;
@@ -212,6 +219,11 @@ export default function TradeCenter({ progress, refreshProgress }) {
         const item = invMap[gainId] || { owned: 0, pasted: false };
         await db.inventory.update(gainId, { owned: item.owned + 1 });
       }
+
+      const activeId2 = getActiveAlbumId() || 'album-legacy';
+      const tradesKey = `trades_${activeId2}`;
+      const currentTrades = parseInt(localStorage.getItem(tradesKey) || '0', 10);
+      localStorage.setItem(tradesKey, String(currentTrades + 1));
 
       confetti({ particleCount: 100, spread: 80 });
       setOfflineStatus({
@@ -351,7 +363,8 @@ export default function TradeCenter({ progress, refreshProgress }) {
 
   const applyOnlineTrade = async (giveIds, gainIds) => {
     try {
-      const inventory = await db.inventory.toArray();
+      const activeId = getActiveAlbumId() || 'album-legacy';
+      const inventory = await db.inventory.where('albumId').equals(activeId).toArray();
       const invMap = {};
       inventory.forEach(item => {
         invMap[item.stickerId] = item;
@@ -371,14 +384,21 @@ export default function TradeCenter({ progress, refreshProgress }) {
         await db.inventory.update(gainId, { owned: item.owned + 1 });
       }
 
-      confetti({ particleCount: 120, spread: 80 });
-      setOnlineState('success');
-      setOnlineStatusMsg('¡Intercambio en tiempo real finalizado con éxito!');
-      
-      if (ws) ws.close();
+      const tradesKey = `trades_${activeId}`;
+      const currentTrades = parseInt(localStorage.getItem(tradesKey) || '0', 10);
+      localStorage.setItem(tradesKey, String(currentTrades + 1));
 
+      confetti({ particleCount: 120, spread: 80 });
+      setOnlineStatusMsg('¡Intercambio realizado con éxito!');
+      setOnlineState('success');
+      
+      // Reset offers
+      setMyOffers([]);
+      setPeerOffers([]);
       loadTradingData();
       refreshProgress();
+
+      if (ws) ws.close();
     } catch (err) {
       alert('Error al aplicar el intercambio: ' + err.message);
     }

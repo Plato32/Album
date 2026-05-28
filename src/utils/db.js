@@ -4,32 +4,150 @@ import Dexie from 'dexie';
 export const db = new Dexie('StickerAlbumDB');
 
 // Define tables and indexes
-db.version(1).stores({
-  albumMetadata: 'id',       // id ("active"), name, description, totalStickers
-  stickers: 'id, name, isRare, group', // id, name, image (base64), isRare, group
-  inventory: 'stickerId, owned, pasted', // stickerId, owned, pasted
-  packsInfo: 'id'            // id ("status"), lastClaimed, packsAvailable
+db.version(2).stores({
+  albumMetadata: 'id',       // unique id of the album, name, description, totalStickers
+  stickers: 'id, name, isRare, group, albumId', // id, name, image, isRare, group, albumId
+  inventory: 'stickerId, owned, pasted, albumId', // stickerId, owned, pasted, albumId
+  packsInfo: 'id',            // status-albumId
+  notes: 'id, albumId, page, text, x, y, color' // sticky notes table
 });
+
+// Helper functions for localStorage active album ID tracking
+export function getActiveAlbumId() {
+  return localStorage.getItem('activeAlbumId') || null;
+}
+
+export function setActiveAlbumId(albumId) {
+  if (albumId) {
+    localStorage.setItem('activeAlbumId', albumId);
+  } else {
+    localStorage.removeItem('activeAlbumId');
+  }
+}
+
+// Migration check for legacy version 1 database entries
+export async function runLegacyMigration() {
+  const legacyMeta = await db.albumMetadata.get('active');
+  if (legacyMeta) {
+    console.log("Migrando álbum legado...");
+    const albumId = 'album-legacy';
+    
+    // Copy metadata
+    await db.albumMetadata.put({
+      ...legacyMeta,
+      id: albumId,
+      albumColor: legacyMeta.albumColor || 'gold',
+      albumBg: legacyMeta.albumBg || 'scrapbook'
+    });
+    await db.albumMetadata.delete('active');
+
+    // Update stickers
+    const allStickers = await db.stickers.toArray();
+    for (const s of allStickers) {
+      if (!s.albumId) {
+        const oldId = s.id;
+        const newId = `${albumId}-${oldId}`;
+        await db.stickers.delete(oldId);
+        await db.stickers.put({
+          ...s,
+          id: newId,
+          albumId: albumId,
+          parentId: s.parentId ? `${albumId}-${s.parentId}` : null
+        });
+      }
+    }
+
+    // Update inventory
+    const allInv = await db.inventory.toArray();
+    for (const item of allInv) {
+      if (!item.albumId) {
+        const oldId = item.stickerId;
+        const newId = `${albumId}-${oldId}`;
+        await db.inventory.delete(oldId);
+        await db.inventory.put({
+          ...item,
+          stickerId: newId,
+          albumId: albumId
+        });
+      }
+    }
+
+    // Update packsInfo
+    const oldPacks = await db.packsInfo.get('status');
+    if (oldPacks) {
+      await db.packsInfo.put({
+        ...oldPacks,
+        id: `status-${albumId}`
+      });
+      await db.packsInfo.delete('status');
+    }
+
+    setActiveAlbumId(albumId);
+    console.log("Migración completada con éxito!");
+  }
+}
 
 // Helper to initialize packsInfo if it doesn't exist
 export async function initPacksInfo() {
-  const status = await db.packsInfo.get('status');
+  await runLegacyMigration();
+  const activeId = getActiveAlbumId();
+  if (!activeId) return;
+
+  const packsId = `status-${activeId}`;
+  const status = await db.packsInfo.get(packsId);
   if (!status) {
     await db.packsInfo.put({
-      id: 'status',
+      id: packsId,
       lastClaimed: 0,
       packsAvailable: 3 // Start with 3 free packs
     });
   }
 }
 
-// Reset everything to start a new album
+// Delete an entire album's contents
+export async function deleteAlbum(albumId) {
+  if (!albumId) return;
+
+  // Delete metadata
+  await db.albumMetadata.delete(albumId);
+
+  // Delete stickers
+  const stickersToDelete = await db.stickers.where('albumId').equals(albumId).toArray();
+  for (const s of stickersToDelete) {
+    await db.stickers.delete(s.id);
+  }
+
+  // Delete inventory
+  const invToDelete = await db.inventory.where('albumId').equals(albumId).toArray();
+  for (const item of invToDelete) {
+    await db.inventory.delete(item.stickerId);
+  }
+
+  // Delete packs
+  await db.packsInfo.delete(`status-${albumId}`);
+
+  // Delete notes
+  const notesToDelete = await db.notes.where('albumId').equals(albumId).toArray();
+  for (const note of notesToDelete) {
+    await db.notes.delete(note.id);
+  }
+
+  // If deleted album was active, unset active
+  if (getActiveAlbumId() === albumId) {
+    setActiveAlbumId(null);
+    const all = await db.albumMetadata.toArray();
+    if (all.length > 0) {
+      setActiveAlbumId(all[0].id);
+    }
+  }
+}
+
+// Reset everything to start a new database state
 export async function clearActiveAlbum() {
-  await db.albumMetadata.clear();
-  await db.stickers.clear();
-  await db.inventory.clear();
-  await db.packsInfo.clear();
-  await initPacksInfo();
+  const activeId = getActiveAlbumId();
+  if (activeId) {
+    await deleteAlbum(activeId);
+  }
 }
 
 export function ensureSplitStickersGrouped(stickersList) {
@@ -155,41 +273,41 @@ export function layoutStickers(stickersList, stickersPerPage = 6, forceSequentia
 
 // Import a new album definition
 export async function importAlbumDefinition(albumJson) {
-  // Clear existing database
-  await clearActiveAlbum();
+  const albumId = `album-${Date.now()}`;
   
   // Set metadata
   await db.albumMetadata.put({
-    id: 'active',
+    id: albumId,
     name: albumJson.name || 'Álbum Personalizado',
     description: albumJson.description || 'Mi álbum de figuritas personalizado',
     totalStickers: albumJson.stickers.length,
     stickersPerPage: albumJson.stickersPerPage || 6,
-    layoutStyle: albumJson.layoutStyle || 'scrapbook'
+    layoutStyle: albumJson.layoutStyle || 'scrapbook',
+    albumBg: albumJson.albumBg || 'scrapbook',
+    albumColor: albumJson.albumColor || 'gold',
+    customBgImage: albumJson.customBgImage || null
   });
   
   // Insert stickers
   const initialStickers = albumJson.stickers.map((sticker, idx) => ({
-    id: idx + 1, // Assure ID is present for layoutStickers
+    id: `${albumId}-${idx + 1}`, // Unique globally
     name: sticker.name || `Figurita ${idx + 1}`,
-    image: sticker.image, // Base64 data
+    image: sticker.image,
     isRare: !!sticker.isRare,
     group: sticker.group || 'General',
-    parentId: sticker.parentId || null,
+    parentId: sticker.parentId ? `${albumId}-${sticker.parentId}` : null,
     splitType: sticker.splitType || null,
     splitPart: sticker.splitPart || null,
     page: sticker.page,
     x: sticker.x,
     y: sticker.y,
     width: sticker.width,
-    rotation: sticker.rotation
+    rotation: sticker.rotation,
+    albumId: albumId
   }));
 
   const forceSequential = albumJson.layoutStyle === 'grid';
-  const stickersToInsert = layoutStickers(initialStickers, albumJson.stickersPerPage || 6, forceSequential).map((s, idx) => ({
-    ...s,
-    id: idx + 1
-  }));
+  const stickersToInsert = layoutStickers(initialStickers, albumJson.stickersPerPage || 6, forceSequential);
   
   await db.stickers.bulkAdd(stickersToInsert);
   
@@ -197,19 +315,32 @@ export async function importAlbumDefinition(albumJson) {
   const inventoryToInsert = stickersToInsert.map(s => ({
     stickerId: s.id,
     owned: 0,
-    pasted: false
+    pasted: false,
+    albumId: albumId
   }));
   
   await db.inventory.bulkAdd(inventoryToInsert);
+  
+  // Initialize packs status
+  await db.packsInfo.put({
+    id: `status-${albumId}`,
+    lastClaimed: 0,
+    packsAvailable: 3
+  });
+
+  setActiveAlbumId(albumId);
   return stickersToInsert.length;
 }
 
-// Get the user's progress
-export async function getAlbumProgress() {
-  const metadata = await db.albumMetadata.get('active');
+// Get the user's progress for a specific album
+export async function getAlbumProgress(albumId) {
+  const activeId = albumId || getActiveAlbumId();
+  if (!activeId) return null;
+  
+  const metadata = await db.albumMetadata.get(activeId);
   if (!metadata) return null;
   
-  const inventory = await db.inventory.toArray();
+  const inventory = await db.inventory.where('albumId').equals(activeId).toArray();
   const total = metadata.totalStickers;
   const pasted = inventory.filter(item => item.pasted).length;
   const uniqueOwned = inventory.filter(item => item.owned > 0).length;
@@ -217,6 +348,7 @@ export async function getAlbumProgress() {
   const duplicates = inventory.reduce((sum, item) => sum + Math.max(0, item.owned - 1), 0);
   
   return {
+    id: activeId,
     name: metadata.name,
     description: metadata.description,
     total,
@@ -225,6 +357,10 @@ export async function getAlbumProgress() {
     totalOwned,
     duplicates,
     percentage: Math.round((pasted / total) * 100) || 0,
-    stickersPerPage: metadata.stickersPerPage || 6
+    stickersPerPage: metadata.stickersPerPage || 6,
+    albumColor: metadata.albumColor || 'gold',
+    albumBg: metadata.albumBg || 'scrapbook',
+    layoutStyle: metadata.layoutStyle || 'scrapbook',
+    customBgImage: metadata.customBgImage || null
   };
 }

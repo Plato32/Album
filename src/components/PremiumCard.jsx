@@ -43,7 +43,6 @@ export default function PremiumCard({ image, name, isRare, style, imgStyle }) {
     setRotate({ x: 0, y: 0 });
   };
 
-  // Build inline styles dynamically for card tilt
   const cardStyle = {
     transform: isHovered 
       ? `perspective(800px) rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale3d(1.05, 1.05, 1.05)`

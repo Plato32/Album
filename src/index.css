@@ -754,12 +754,14 @@ p {
   justify-content: center;
   padding: 10px;
   opacity: 0;
+  pointer-events: none;
   z-index: 15;
   transition: opacity var(--transition-normal);
 }
 
 .sticker-slot:hover .slot-paste-overlay {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .slot-badge-container {
@@ -1870,6 +1872,7 @@ p {
 
 .sub-slot:hover .slot-paste-overlay {
   opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 /* Premium Golden Pulse Border for Rare/Special cards */
@@ -2077,5 +2080,210 @@ p {
   padding: 0px !important;
   box-shadow: 0 10px 25px rgba(226, 162, 39, 0.15), var(--shadow-sm) !important;
   animation: completed-glow 2.5s ease-in-out infinite alternate !important;
+}
+
+/* Print Only Album Container (Hidden on Screen) */
+.print-only-album-container {
+  display: none;
+}
+
+.print-only-block {
+  display: none !important;
+}
+
+/* Interactive Sticky Notes Styles */
+.sticky-note {
+  width: 130px;
+  min-height: 110px;
+  padding: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  font-family: 'Caveat', 'Kalam', 'Comic Sans MS', 'Courier New', cursive;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #2c251e;
+  border-bottom-right-radius: 40px 10px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transition: box-shadow 0.15s ease;
+}
+
+.sticky-note.is-editable:hover {
+  box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+}
+
+.note-color-yellow {
+  background: linear-gradient(135deg, #fff3a1 0%, #fff7c2 100%);
+  border-left: 3px solid #f1c40f;
+}
+.note-color-pink {
+  background: linear-gradient(135deg, #ffc2d4 0%, #ffe0ea 100%);
+  border-left: 3px solid #e91e63;
+}
+.note-color-green {
+  background: linear-gradient(135deg, #c2ffd0 0%, #e0ffe8 100%);
+  border-left: 3px solid #2ecc71;
+}
+.note-color-blue {
+  background: linear-gradient(135deg, #c2e7ff 0%, #e0f2ff 100%);
+  border-left: 3px solid #3498db;
+}
+
+.note-edit-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+  padding-bottom: 4px;
+}
+
+.note-color-select {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  outline: none;
+}
+
+.note-delete-btn {
+  border: none;
+  background: transparent;
+  color: rgba(0,0,0,0.4);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 0 4px;
+  font-weight: bold;
+  transition: color 0.1s;
+}
+
+.note-delete-btn:hover {
+  color: #ff3b30;
+}
+
+.note-textarea {
+  width: 100%;
+  height: 100%;
+  flex-grow: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  outline: none;
+  padding: 0;
+  margin: 0;
+}
+
+.note-text-display {
+  width: 100%;
+  height: 100%;
+  flex-grow: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  cursor: inherit;
+}
+
+/* Page-by-Page Printing Styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide screen elements */
+  .navbar-header,
+  .navbar-nav,
+  footer,
+  .app-container > footer,
+  .welcome-gate,
+  .progress-card,
+  .customizer-panel,
+  .btn-secondary,
+  .btn-primary,
+  .edit-toolbar,
+  .note-edit-controls,
+  .note-delete-btn,
+  .note-color-select,
+  .note-textarea,
+  .print-hidden,
+  button,
+  select,
+  input {
+    display: none !important;
+  }
+
+  /* Reset layout width and boxes */
+  .app-container, .flex-grow, .max-w-6xl {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* Show the print version container, hide screen book wrapper */
+  .print-only-album-container {
+    display: block !important;
+  }
+  
+  .album-book,
+  .album-double-page,
+  .flex.justify-between.items-center.mt-6 {
+    display: none !important;
+  }
+
+  .print-only-block {
+    display: block !important;
+  }
+
+  /* Each single album page printed page-by-page */
+  .print-page {
+    width: 100% !important;
+    height: 98vh !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    border: 1px solid rgba(0,0,0,0.15) !important;
+    padding: 2.5rem 1.5rem 1.5rem !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background-color: #faf6eb !important;
+  }
+  
+  /* Retain backgrounds on printing */
+  .print-page.bg-theme-corkboard {
+    background-color: #e5dec9 !important;
+  }
+  .print-page.bg-theme-wood {
+    background-color: #d7ccc8 !important;
+  }
+  .print-page.bg-theme-cardboard {
+    background-color: #efebe9 !important;
+  }
+  .print-page.bg-theme-fabric {
+    background-color: #eceff1 !important;
+  }
+  .print-page.bg-theme-blueprint {
+    background-color: #0d47a1 !important;
+  }
+  
+  /* Assure image rendering inside slots is high quality */
+  .premium-card-img-wrapper img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 
