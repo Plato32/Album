@@ -592,52 +592,40 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     const inv = inventory[sticker.id] || { owned: 0, pasted: false };
     const hasUnpasted = inv.owned > 0 && !inv.pasted;
     const isPasted = inv.pasted;
-    const isHighlighted = highlightedStickerId === sticker.id;
     const duplicateCount = Math.max(0, inv.owned - 1);
+    const isHighlighted = highlightedStickerId === sticker.id;
 
     return (
-      <div 
+      <div
         key={sticker.id}
         className={`sticker-slot ${isPasted ? 'is-pasted' : ''} ${isHighlighted ? 'highlight-pulse' : ''} ${sticker.isRare ? 'rare-sticker-slot' : ''}`}
       >
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {isPasted ? (
-            <div 
-              onClick={() => { if (!isEditMode) handleZoomSticker(sticker); }}
-              className={`w-full h-full sticker-pasted ${!isEditMode ? 'cursor-zoom-in' : ''} ${recentlyPastedId === sticker.id ? 'animate-paste-slam' : ''}`}
-              style={{ position: 'relative', width: '100%', height: '100%' }}
-            >
-              <div style={{ width: '100%', aspectRatio: '3/4' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
+          {/* Card or Silhouette container - Flex grows to fill space */}
+          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%' }}>
+            {isPasted ? (
+              <div 
+                onClick={() => { if (!isEditMode) handleZoomSticker(sticker); }}
+                className={`w-full h-full sticker-pasted ${!isEditMode ? 'cursor-zoom-in' : ''} ${recentlyPastedId === sticker.id ? 'animate-paste-slam' : ''}`}
+                style={{ position: 'relative', width: '100%', height: '100%' }}
+              >
                 <PremiumCard 
                   image={sticker.image} 
                   name={sticker.name} 
                   isRare={sticker.isRare} 
                 />
-              </div>
-              
-              {/* Floating overlays for pasted grid stickers */}
-              {(duplicateCount > 0 || isPasted) && (
-                <div className="slot-badge-container" style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35, display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  {duplicateCount > 0 && (
+                
+                {/* Floating duplicate count overlay inside the card area */}
+                {duplicateCount > 0 && (
+                  <div className="slot-badge-container" style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35, display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <span className="badge-dupe" style={{ fontSize: '9px', padding: '2px 5px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
                       +{duplicateCount}
                     </span>
-                  )}
-                  {isPasted && (
-                    <span className="badge-pasted" style={{ width: '14px', height: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
-                      <Check size={9} />
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-              <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4' }}>
-                <div className="slot-num-badge" style={{ top: '8px', left: '8px' }}>
-                  N° {String(sticker.id).padStart(3, '0')}
-                </div>
-
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <div className="slot-silhouette w-full h-full" style={{ borderRadius: '8px' }}>
                   <span className="font-display font-extrabold text-sm text-slate-500">?</span>
                 </div>
@@ -655,23 +643,27 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                   </div>
                 )}
               </div>
+            )}
+          </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
-                    {sticker.name}
+          {/* Caption Container - ALWAYS visible at the bottom, outside the image */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px' }}>
+            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+              N° {String(sticker.id).padStart(3, '0')}
+            </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
+                {sticker.name}
+              </span>
+              {!isPasted && duplicateCount > 0 && (
+                <div className="slot-badge-container" style={{ position: 'static' }}>
+                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
+                    +{duplicateCount}
                   </span>
-                  <div className="slot-badge-container" style={{ position: 'static' }}>
-                    {duplicateCount > 0 && (
-                      <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
-                        +{duplicateCount}
-                      </span>
-                    )}
-                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -704,23 +696,18 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
     let gridColumnSpan = 'span 1';
     let gridRowSpan = 'span 1';
-    let aspect = '3/4';
 
     if (isHorizontal) {
       if (combinedAspect > 1.2) {
         gridColumnSpan = 'span 2';
-        aspect = '3/2';
       } else {
         gridColumnSpan = 'span 1';
-        aspect = '3/4';
       }
     } else {
       if (combinedAspect < 0.5) {
         gridRowSpan = 'span 2';
-        aspect = '3/8';
       } else {
         gridRowSpan = 'span 1';
-        aspect = '3/4';
       }
     }
 
@@ -769,118 +756,95 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           gridRow: gridRowSpan,
         }}
       >
-        <div style={{ width: '100%', aspectRatio: aspect, position: 'relative' }}>
-          <div className="pair-slots-container" style={{ display: 'flex', flexDirection: isHorizontal ? 'row' : 'column', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
-            <div className="sub-slot" style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
-              {!isPasted1 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s1.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted1 ? (
-                <div 
-                  onClick={() => {
-                    if (isPasted1 && isPasted2) handleZoomSet(pair.stickers, type);
-                    else handleZoomSticker(s1);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s1.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
-
-              {/* Sub-slot badges overlay */}
-              {isPasted1 && dup1 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
-                </div>
-              )}
-
-              {hasUnpasted1 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
+          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%' }}>
+            <div className="pair-slots-container" style={{ display: 'flex', flexDirection: isHorizontal ? 'row' : 'column', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
+              <div className="sub-slot" style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
+                {isPasted1 ? (
+                  <div 
+                    onClick={() => {
+                      if (isPasted1 && isPasted2) handleZoomSet(pair.stickers, type);
+                      else handleZoomSticker(s1);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s1.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
-            </div>
+                    <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '8px 0 0 8px' : '8px 8px 0 0', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
 
-            {!isPastedAll && (
-              <div className={`pair-divider-line ${isHorizontal ? 'line-vertical' : 'line-horizontal'}`} />
-            )}
+                {/* Sub-slot badges overlay */}
+                {isPasted1 && dup1 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
+                  </div>
+                )}
 
-            <div className="sub-slot" style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
-              {!isPasted2 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s2.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted2 ? (
-                <div 
-                  onClick={() => {
-                    if (isPasted1 && isPasted2) handleZoomSet(pair.stickers, type);
-                    else handleZoomSticker(s2);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s2.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
+                {hasUnpasted1 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {/* Sub-slot badges overlay */}
-              {isPasted2 && dup2 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
-                </div>
+              {!isPastedAll && (
+                <div className={`pair-divider-line ${isHorizontal ? 'line-vertical' : 'line-horizontal'}`} />
               )}
 
-              {hasUnpasted2 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+              <div className="sub-slot" style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
+                {isPasted2 ? (
+                  <div 
+                    onClick={() => {
+                      if (isPasted1 && isPasted2) handleZoomSet(pair.stickers, type);
+                      else handleZoomSticker(s2);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s2.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
+                    <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: isHorizontal ? '0 8px 8px 0' : '0 0 8px 8px', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
+
+                {/* Sub-slot badges overlay */}
+                {isPasted2 && dup2 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
+                  </div>
+                )}
+
+                {hasUnpasted2 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Floating unified checkmark overlaid on completed pairs */}
-          {isPastedAll && (
-            <div className="slot-badge-container" style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-              <span className="badge-pasted" style={{ width: '14px', height: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
-                <Check size={9} />
-              </span>
-            </div>
-          )}
-        </div>
-
-        {!isPastedAll && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px', padding: '0 2px' }}>
-            {(isPasted1 || isPasted2) && (
-              <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-                {isPasted1 ? `N° ${String(s1.id).padStart(3, '0')}` : ''}
-                {isPasted1 && isPasted2 ? ' y ' : ''}
-                {isPasted2 ? `N° ${String(s2.id).padStart(3, '0')}` : ''}
-              </span>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px', padding: '0 2px' }}>
+            <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+              N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
+            </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
                 {getUnifiedName(s1.name)}
@@ -894,7 +858,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -976,201 +940,163 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           gridRow: 'span 2',
         }}
       >
-        <div style={{ width: '100%', aspectRatio: s1.aspectRatio || 0.75, position: 'relative' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {!isPasted1 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s1.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted1 ? (
-                <div 
-                  onClick={() => {
-                    if (isCompleted) handleZoomSet(quad.stickers, 'quad');
-                    else handleZoomSticker(s1);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s1.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
-
-              {isPasted1 && dup1 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
-                </div>
-              )}
-
-              {hasUnpasted1 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
+          <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', gap: '0px', overflow: 'hidden' }}>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {isPasted1 ? (
+                  <div 
+                    onClick={() => {
+                      if (isCompleted) handleZoomSet(quad.stickers, 'quad');
+                      else handleZoomSticker(s1);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s1.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
-            </div>
+                    <PremiumCard image={s1.image} name={s1.name} isRare={s1.isRare} style={styleOverride1} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: '12px 0 0 0', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
 
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {!isPasted2 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s2.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted2 ? (
-                <div 
-                  onClick={() => {
-                    if (isCompleted) handleZoomSet(quad.stickers, 'quad');
-                    else handleZoomSticker(s2);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s2.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
+                {isPasted1 && dup1 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup1}</span>
+                  </div>
+                )}
 
-              {isPasted2 && dup2 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
-                </div>
-              )}
+                {hasUnpasted1 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted1 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s1.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {hasUnpasted2 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {isPasted2 ? (
+                  <div 
+                    onClick={() => {
+                      if (isCompleted) handleZoomSet(quad.stickers, 'quad');
+                      else handleZoomSticker(s2);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s2.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
-            </div>
+                    <PremiumCard image={s2.image} name={s2.name} isRare={s2.isRare} style={styleOverride2} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: '0 12px 0 0', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
 
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {!isPasted3 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s3.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted3 ? (
-                <div 
-                  onClick={() => {
-                    if (isCompleted) handleZoomSet(quad.stickers, 'quad');
-                    else handleZoomSticker(s3);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s3.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s3.image} name={s3.name} isRare={s3.isRare} style={styleOverride3} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
+                {isPasted2 && dup2 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup2}</span>
+                  </div>
+                )}
 
-              {isPasted3 && dup3 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup3}</span>
-                </div>
-              )}
+                {hasUnpasted2 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted2 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s2.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {hasUnpasted3 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s3.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {isPasted3 ? (
+                  <div 
+                    onClick={() => {
+                      if (isCompleted) handleZoomSet(quad.stickers, 'quad');
+                      else handleZoomSticker(s3);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s3.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
-            </div>
+                    <PremiumCard image={s3.image} name={s3.name} isRare={s3.isRare} style={styleOverride3} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: '0 0 0 12px', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
 
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {!isPasted4 && (
-                <div className="slot-num-badge sub-slot-badge">
-                  N° {String(s4.id).padStart(3, '0')}
-                </div>
-              )}
-              {isPasted4 ? (
-                <div 
-                  onClick={() => {
-                    if (isCompleted) handleZoomSet(quad.stickers, 'quad');
-                    else handleZoomSticker(s4);
-                  }}
-                  className={`w-full h-full sticker-pasted ${recentlyPastedId === s4.id ? 'animate-paste-slam' : ''}`}
-                >
-                  <PremiumCard image={s4.image} name={s4.name} isRare={s4.isRare} style={styleOverride4} imgStyle={{ objectFit: 'fill' }} />
-                </div>
-              ) : (
-                <div className="slot-silhouette" style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}>
-                  <span className="font-display font-extrabold text-sm text-slate-500">?</span>
-                </div>
-              )}
+                {isPasted3 && dup3 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup3}</span>
+                  </div>
+                )}
 
-              {isPasted4 && dup4 > 0 && (
-                <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
-                  <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup4}</span>
-                </div>
-              )}
+                {hasUnpasted3 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted3 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s3.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {hasUnpasted4 && (
-                <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined }}>
-                  <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePasteSticker(s4.id); }}
-                    className="btn-gold"
-                    style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {isPasted4 ? (
+                  <div 
+                    onClick={() => {
+                      if (isCompleted) handleZoomSet(quad.stickers, 'quad');
+                      else handleZoomSticker(s4);
+                    }}
+                    className={`w-full h-full sticker-pasted ${recentlyPastedId === s4.id ? 'animate-paste-slam' : ''}`}
                   >
-                    Pegar
-                  </button>
-                </div>
-              )}
+                    <PremiumCard image={s4.image} name={s4.name} isRare={s4.isRare} style={styleOverride4} imgStyle={{ objectFit: 'fill' }} />
+                  </div>
+                ) : (
+                  <div className="slot-silhouette" style={{ borderRadius: '0 0 12px 0', width: '100%', height: '100%' }}>
+                    <span className="font-display font-extrabold text-sm text-slate-500">?</span>
+                  </div>
+                )}
+
+                {isPasted4 && dup4 > 0 && (
+                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', zIndex: 35 }}>
+                    <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>+{dup4}</span>
+                  </div>
+                )}
+
+                {hasUnpasted4 && (
+                  <div className="slot-paste-overlay" style={{ opacity: isHighlighted4 ? 1 : undefined }}>
+                    <span className="text-[10px] text-slate-500 font-semibold mb-1">¡La tienes!</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handlePasteSticker(s4.id); }}
+                      className="btn-gold"
+                      style={{ padding: '4px 8px', fontSize: '10px', borderRadius: '6px' }}
+                    >
+                      Pegar
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Floating unified checkmark overlaid on completed quads */}
-          {isCompleted && (
-            <div className="slot-badge-container" style={{ position: 'absolute', bottom: '8px', right: '8px', zIndex: 35 }}>
-              <span className="badge-pasted" style={{ width: '14px', height: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
-                <Check size={9} />
-              </span>
-            </div>
-          )}
-        </div>
-
-        {!isCompleted && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px', padding: '0 2px' }}>
-            {pastedCount > 0 && (
-              <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-                {(() => {
-                  const parts = [];
-                  if (isPasted1) parts.push(`N° ${String(s1.id).padStart(3, '0')}`);
-                  if (isPasted2) parts.push(`N° ${String(s2.id).padStart(3, '0')}`);
-                  if (isPasted3) parts.push(`N° ${String(s3.id).padStart(3, '0')}`);
-                  if (isPasted4) parts.push(`N° ${String(s4.id).padStart(3, '0')}`);
-                  return parts.join(', ');
-                })()}
-              </span>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px', padding: '0 2px' }}>
+            <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+              N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
+            </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
                 {getUnifiedName(s1.name)}
@@ -1184,7 +1110,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -1194,15 +1120,30 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     const renderedItems = processPageStickers(pageStickers);
 
     let gridCols = 3;
-    if (stickersPerPage === 4) gridCols = 2;
-    else if (stickersPerPage === 8 || stickersPerPage === 12) gridCols = 4;
-    else if (stickersPerPage === 9) gridCols = 3;
+    let gridRows = 2;
+    if (stickersPerPage === 4) {
+      gridCols = 2;
+      gridRows = 2;
+    } else if (stickersPerPage === 8) {
+      gridCols = 4;
+      gridRows = 2;
+    } else if (stickersPerPage === 12) {
+      gridCols = 4;
+      gridRows = 3;
+    } else if (stickersPerPage === 9) {
+      gridCols = 3;
+      gridRows = 3;
+    } else {
+      gridCols = 3;
+      gridRows = 2;
+    }
 
     return (
       <div 
         className="sticker-slots-grid"
         style={{ 
           '--grid-cols': gridCols,
+          '--grid-rows': gridRows,
           width: '100%', 
           height: '100%',
           marginTop: 0
@@ -1425,12 +1366,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
     return (
       <div className={`w-full h-full sticker-slot-inner ${isHighlighted ? 'highlight-pulse' : ''}`} style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {!isPasted && (
-          <div className="slot-num-badge">
-            N° {String(sticker.id).padStart(3, '0')}
-          </div>
-        )}
-        
         {isPasted ? (
           <div 
             onClick={() => {
@@ -1468,16 +1403,13 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
   const renderSingleStickerCaption = (sticker) => {
     const inv = inventory[sticker.id] || { owned: 0, pasted: false };
-    const isPasted = inv.pasted;
     const duplicateCount = Math.max(0, inv.owned - 1);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
-        {isPasted && (
-          <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-            N° {String(sticker.id).padStart(3, '0')}
-          </span>
-        )}
+        <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+          N° {String(sticker.id).padStart(3, '0')}
+        </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
             {sticker.name}
@@ -1486,11 +1418,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             {duplicateCount > 0 && (
               <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
                 +{duplicateCount}
-              </span>
-            )}
-            {isPasted && (
-              <span className="badge-pasted" style={{ width: '12px', height: '12px' }}>
-                <Check size={8} />
               </span>
             )}
           </div>
@@ -1553,11 +1480,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     return (
       <div style={{ display: 'flex', flexDirection: isHorizontal ? 'row' : 'column', width: '100%', height: '100%' }}>
         <div style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
-          {!isPasted1 && (
-            <div className="slot-num-badge sub-slot-badge">
-              N° {String(s1.id).padStart(3, '0')}
-            </div>
-          )}
           {isPasted1 ? (
             <div 
               onClick={() => {
@@ -1594,11 +1516,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
         )}
 
         <div style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
-          {!isPasted2 && (
-            <div className="slot-num-badge sub-slot-badge">
-              N° {String(s2.id).padStart(3, '0')}
-            </div>
-          )}
           {isPasted2 ? (
             <div 
               onClick={() => {
@@ -1638,21 +1555,14 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     const inv1 = inventory[s1.id] || { owned: 0, pasted: false };
     const inv2 = inventory[s2.id] || { owned: 0, pasted: false };
     
-    const isPasted1 = inv1.pasted;
-    const isPasted2 = inv2.pasted;
-    
     const dup1 = Math.max(0, inv1.owned - 1);
     const dup2 = Math.max(0, inv2.owned - 1);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
-        {(isPasted1 || isPasted2) && (
-          <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-            {isPasted1 ? `N° ${String(s1.id).padStart(3, '0')}` : ''}
-            {isPasted1 && isPasted2 ? ' y ' : ''}
-            {isPasted2 ? `N° ${String(s2.id).padStart(3, '0')}` : ''}
-          </span>
-        )}
+        <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+          N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
+        </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
             {getUnifiedName(s1.name)}
@@ -1661,11 +1571,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             {(dup1 + dup2) > 0 && (
               <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
                 +{dup1 + dup2}
-              </span>
-            )}
-            {isPasted1 && isPasted2 && (
-              <span className="badge-pasted" style={{ width: '12px', height: '12px' }}>
-                <Check size={8} />
               </span>
             )}
           </div>
@@ -1755,11 +1660,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', gap: '0px' }}>
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {!isPasted1 && (
-              <div className="slot-num-badge sub-slot-badge">
-                N° {String(s1.id).padStart(3, '0')}
-              </div>
-            )}
             {isPasted1 ? (
               <div 
                 onClick={() => {
@@ -1792,11 +1692,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
 
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {!isPasted2 && (
-              <div className="slot-num-badge sub-slot-badge">
-                N° {String(s2.id).padStart(3, '0')}
-              </div>
-            )}
             {isPasted2 ? (
               <div 
                 onClick={() => {
@@ -1829,11 +1724,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
 
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {!isPasted3 && (
-              <div className="slot-num-badge sub-slot-badge">
-                N° {String(s3.id).padStart(3, '0')}
-              </div>
-            )}
             {isPasted3 ? (
               <div 
                 onClick={() => {
@@ -1866,11 +1756,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           </div>
 
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {!isPasted4 && (
-              <div className="slot-num-badge sub-slot-badge">
-                N° {String(s4.id).padStart(3, '0')}
-              </div>
-            )}
             {isPasted4 ? (
               <div 
                 onClick={() => {
@@ -1923,23 +1808,11 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     const dup3 = Math.max(0, inv3.owned - 1);
     const dup4 = Math.max(0, inv4.owned - 1);
 
-    const pastedCount = (isPasted1 ? 1 : 0) + (isPasted2 ? 1 : 0) + (isPasted3 ? 1 : 0) + (isPasted4 ? 1 : 0);
-    const isCompleted = pastedCount === 4;
-
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
-        {pastedCount > 0 && (
-          <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-            {(() => {
-              const parts = [];
-              if (isPasted1) parts.push(`N° ${String(s1.id).padStart(3, '0')}`);
-              if (isPasted2) parts.push(`N° ${String(s2.id).padStart(3, '0')}`);
-              if (isPasted3) parts.push(`N° ${String(s3.id).padStart(3, '0')}`);
-              if (isPasted4) parts.push(`N° ${String(s4.id).padStart(3, '0')}`);
-              return parts.join(', ');
-            })()}
-          </span>
-        )}
+        <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
+          N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
+        </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80%' }}>
             {getUnifiedName(s1.name)}
@@ -1948,11 +1821,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             {(dup1 + dup2 + dup3 + dup4) > 0 && (
               <span className="badge-dupe" style={{ fontSize: '8px', padding: '1px 3px' }}>
                 +{dup1 + dup2 + dup3 + dup4}
-              </span>
-            )}
-            {isCompleted && (
-              <span className="badge-pasted" style={{ width: '12px', height: '12px' }}>
-                <Check size={8} />
               </span>
             )}
           </div>
@@ -2408,14 +2276,14 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
               {/* LEFT PAGE */}
               <div 
-                className={`album-page album-page-left bg-theme-${albumBg}`}
+                className={`album-page album-page-left bg-theme-${albumBg} ${layoutStyle === 'grid' ? 'layout-grid' : ''}`}
                 style={{
                   ...(albumBg === 'custom' && customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
                   padding: '2.5rem 1.5rem 1.5rem',
                   display: 'flex',
                   flexDirection: 'column',
                   height: 'auto',
-                  minHeight: '580px',
+                  minHeight: layoutStyle === 'grid' ? '620px' : '580px',
                   position: 'relative',
                   border: draggedOverPage === currentPage * 2 ? '2px dashed var(--theme-accent)' : 'none',
                   backgroundColor: draggedOverPage === currentPage * 2 ? 'rgba(226, 162, 39, 0.15)' : undefined,
@@ -2428,21 +2296,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 onDrop={(e) => handleDropOnPage(e, currentPage * 2)}
               >
                 <div className="page-num page-num-left">Pág. {currentPage * 2 + 1}</div>
-                <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem' }}>
+                <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {layoutStyle === 'scrapbook' ? renderPage(currentPage * 2) : renderGridPage(currentPage * 2)}
                 </div>
               </div>
 
               {/* RIGHT PAGE */}
               <div 
-                className={`album-page album-page-right bg-theme-${albumBg}`}
+                className={`album-page album-page-right bg-theme-${albumBg} ${layoutStyle === 'grid' ? 'layout-grid' : ''}`}
                 style={{
                   ...(albumBg === 'custom' && customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
                   padding: '2.5rem 1.5rem 1.5rem',
                   display: 'flex',
                   flexDirection: 'column',
                   height: 'auto',
-                  minHeight: '580px',
+                  minHeight: layoutStyle === 'grid' ? '620px' : '580px',
                   position: 'relative',
                   border: draggedOverPage === currentPage * 2 + 1 ? '2px dashed var(--theme-accent)' : 'none',
                   backgroundColor: draggedOverPage === currentPage * 2 + 1 ? 'rgba(226, 162, 39, 0.15)' : undefined,
@@ -2455,7 +2323,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 onDrop={(e) => handleDropOnPage(e, currentPage * 2 + 1)}
               >
                 <div className="page-num page-num-right">Pág. {currentPage * 2 + 2}</div>
-                <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem' }}>
+                <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {layoutStyle === 'scrapbook' ? renderPage(currentPage * 2 + 1) : renderGridPage(currentPage * 2 + 1)}
                 </div>
               </div>

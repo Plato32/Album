@@ -640,8 +640,23 @@ p {
 .sticker-slots-grid {
   display: grid;
   grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
+  grid-template-rows: repeat(var(--grid-rows, 2), 1fr);
   gap: 1.25rem;
   margin-top: 1.5rem;
+  height: 100%;
+}
+
+.sticker-slots-grid > * {
+  justify-self: center;
+  align-self: center;
+  width: 100%;
+  max-height: 100%;
+}
+
+@media (max-width: 900px) {
+  .sticker-slots-grid {
+    grid-template-rows: auto !important;
+  }
 }
 
 @media (max-width: 600px) {
@@ -650,9 +665,16 @@ p {
   }
 }
 
+/* Limit page height in grid mode on desktop */
+@media (min-width: 901px) {
+  .album-page.layout-grid {
+    height: 620px !important;
+  }
+}
+
 .sticker-slot {
   position: relative;
-  aspect-ratio: auto;
+  aspect-ratio: 3/4;
   border-radius: 10px;
   border: 1.5px dashed var(--border-color);
   background: #f9f8f4;
@@ -690,12 +712,24 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  opacity: 0.25;
-  transition: opacity var(--transition-fast);
+  background-color: #f5f3eb;
+  border: 1.5px solid #dfd8c7;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  opacity: 1;
+  transition: all var(--transition-fast);
+}
+
+.slot-silhouette span {
+  opacity: 0.35;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--text-secondary);
 }
 
 .sticker-slot:hover .slot-silhouette {
-  opacity: 0.35;
+  background-color: #eae4d0;
+  border-color: #c4bca4;
 }
 
 .slot-sticker-title {
@@ -1109,6 +1143,14 @@ p {
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
+.sticker-slot-pair.slot-pair-horizontal {
+  aspect-ratio: 1.5;
+}
+
+.sticker-slot-pair.slot-pair-vertical {
+  aspect-ratio: 0.375;
+}
+
 .sticker-slot-pair:hover {
   border-color: #b5ad96;
   background: #f5f4ee;
@@ -1145,20 +1187,18 @@ p {
 .sub-slot .slot-silhouette {
   width: 100%;
   height: 100%;
-  background-color: rgba(5, 6, 11, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-grow: 1;
   aspect-ratio: inherit;
   border-radius: 8px;
-  opacity: 0.25;
-  transition: opacity var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .sticker-slot-pair:hover .slot-silhouette {
-  opacity: 0.35;
+  background-color: #eae4d0;
+  border-color: #c4bca4;
 }
 
 .sub-slot .sticker-pasted {
@@ -1258,6 +1298,7 @@ p {
   flex-direction: column;
   box-shadow: 0 4px 10px rgba(139, 126, 116, 0.05), inset 0 2px 8px rgba(0, 0, 0, 0.02);
   z-index: 1;
+  aspect-ratio: 3/4;
 }
 
 .sticker-slot-quad:hover {
@@ -2018,7 +2059,6 @@ p {
   background: transparent !important;
   padding: 0 !important;
   box-shadow: none !important;
-  aspect-ratio: auto !important;
 }
 .sticker-slot.is-pasted.rare-sticker-slot {
   border: none !important;

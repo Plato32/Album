@@ -91,9 +91,28 @@ export function layoutStickers(stickersList, stickersPerPage = 6, forceSequentia
   else if (stickersPerPage === 8 || stickersPerPage === 12) { cols = 4; rows = Math.ceil(stickersPerPage / 4); }
   else if (stickersPerPage === 9) { cols = 3; rows = 3; }
 
-  return groups.flatMap((group, groupIdx) => {
-    const page = Math.floor(groupIdx / stickersPerPage);
-    const slotIdx = groupIdx % stickersPerPage;
+  let currentPageIndex = 0;
+  let currentPageCells = 0;
+  let groupIndexOnPage = 0;
+
+  return groups.flatMap((group) => {
+    // Estimación del tamaño en celdas de la cuadrícula:
+    // Un quad consume 4 celdas, un par consume 2 celdas, una individual 1 celda.
+    const size = group.length === 4 ? 4 : (group.length === 2 ? 2 : 1);
+
+    // Si el grupo no cabe en la página actual, pasamos a la siguiente página
+    if (currentPageCells > 0 && currentPageCells + size > stickersPerPage) {
+      currentPageIndex++;
+      currentPageCells = 0;
+      groupIndexOnPage = 0;
+    }
+
+    const page = currentPageIndex;
+    const slotIdx = groupIndexOnPage;
+
+    currentPageCells += size;
+    groupIndexOnPage++;
+
     const col = slotIdx % cols;
     const row = Math.floor(slotIdx / cols);
 
