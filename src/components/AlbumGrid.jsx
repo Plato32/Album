@@ -824,7 +824,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           borderBottomRightRadius: '8px',
           boxShadow: 'none',
         };
-
     return (
       <div 
         key={`${s1.id}-${s2.id}`} 
@@ -833,6 +832,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           gridColumn: gridColumnSpan,
           gridRow: gridRowSpan,
         }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '4px' }}>
           <div style={{ flexGrow: 1, minHeight: 0, position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div 
