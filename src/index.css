@@ -2056,6 +2056,11 @@ p {
   object-fit: contain !important;
 }
 
+/* Force panoramic components to fill their sub-cells in zoom modal */
+.zoom-panorama-container img {
+  object-fit: fill !important;
+}
+
 /* Pasted cleaner style rules */
 .sticker-slot.is-pasted {
   border: none !important;

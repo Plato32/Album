@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 
-export default function PremiumCard({ image, name, isRare, style, imgStyle }) {
+export default function PremiumCard({ image, name, isRare, style, imgStyle, children }) {
   const cardRef = useRef(null);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
@@ -91,15 +91,17 @@ export default function PremiumCard({ image, name, isRare, style, imgStyle }) {
         }}
       />
 
-      {/* Sticker Image */}
-      <div className="premium-card-img-wrapper">
-        <img 
-          src={image} 
-          alt={name} 
-          draggable="false"
-          style={imgStyle}
-        />
-      </div>
+      {children ? children : (
+        /* Sticker Image */
+        <div className="premium-card-img-wrapper">
+          <img 
+            src={image} 
+            alt={name} 
+            draggable="false"
+            style={imgStyle}
+          />
+        </div>
+      )}
     </div>
   );
 }

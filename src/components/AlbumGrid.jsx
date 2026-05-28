@@ -841,7 +841,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 display: 'flex', 
                 flexDirection: isHorizontal ? 'row' : 'column', 
                 width: isHorizontal ? 'calc(100% - 1.25rem)' : '100%', 
-                height: isHorizontal ? '100%' : 'calc(100% - 1.25rem)', 
+                height: '100%', 
                 gap: '0px', 
                 overflow: 'hidden' 
               }}
@@ -2724,33 +2724,49 @@ export default function AlbumGrid({ progress, refreshProgress }) {
               transition: 'max-width 0.2s ease-out'
             }}
           >
-            {zoomedSticker.isPanorama ? (
-              <div style={{
-                display: zoomedSticker.splitType === 'quad' ? 'grid' : 'flex',
-                gridTemplateColumns: zoomedSticker.splitType === 'quad' ? '1fr 1fr' : undefined,
-                flexDirection: (zoomedSticker.splitType === 'vertical-pair' || zoomedSticker.splitType === 'vertical') ? 'column' : 'row',
-                width: '100%',
-                height: '100%'
-              }}>
-                {zoomedSticker.parts.map(part => (
-                  <div key={part.id} style={{ flex: 1, height: zoomedSticker.splitType === 'quad' ? 'auto' : '100%' }}>
-                    <PremiumCard 
-                      image={part.image}
-                      name={part.name}
-                      isRare={part.isRare}
-                      style={{ width: '100%', height: '100%', borderRadius: 0, border: 'none' }}
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <PremiumCard 
-                image={zoomedSticker.image}
-                name={zoomedSticker.name}
-                isRare={zoomedSticker.isRare}
-                style={{ width: '100%', height: '100%' }}
-              />
-            )}
+            <PremiumCard 
+              image={zoomedSticker.isPanorama ? undefined : zoomedSticker.image}
+              name={zoomedSticker.name}
+              isRare={zoomedSticker.isRare}
+              style={{ width: '100%', height: '100%' }}
+            >
+              {zoomedSticker.isPanorama && (
+                <div 
+                  className="zoom-panorama-container"
+                  style={{
+                    display: zoomedSticker.splitType === 'quad' ? 'grid' : 'flex',
+                    gridTemplateColumns: zoomedSticker.splitType === 'quad' ? '1fr 1fr' : undefined,
+                    flexDirection: (zoomedSticker.splitType === 'vertical-pair' || zoomedSticker.splitType === 'vertical') ? 'column' : 'row',
+                    width: '100%',
+                    height: '100%',
+                    gap: '0px',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {zoomedSticker.parts.map(part => {
+                    const partHeight = (zoomedSticker.splitType === 'vertical-pair' || zoomedSticker.splitType === 'vertical') ? '50%' : '100%';
+                    return (
+                      <div 
+                        key={part.id} 
+                        style={{ 
+                          flex: 1, 
+                          height: partHeight, 
+                          overflow: 'hidden', 
+                          position: 'relative' 
+                        }}
+                      >
+                        <img 
+                          src={part.image} 
+                          alt={part.name} 
+                          draggable="false"
+                          style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </PremiumCard>
             {/* Overlay Close Button */}
             <button 
               onClick={closeZoom}
