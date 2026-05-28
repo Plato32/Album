@@ -148,16 +148,26 @@ export default function TradeCenter({ progress, refreshProgress }) {
 
     try {
       // 1. Process inventory updates for receiver:
-      // Lose cards we are giving (which is what sender wants)
-      for (const giveId of decodedProposal.want) {
-        const item = invMap[giveId];
-        await db.inventory.update(giveId, { owned: item.owned - 1 });
-      }
-      // Gain cards we are receiving (which is what sender gives)
-      for (const gainId of decodedProposal.give) {
-        const item = invMap[gainId] || { owned: 0, pasted: false };
-        await db.inventory.update(gainId, { owned: item.owned + 1 });
-      }
+      await db.transaction('rw', db.inventory, async () => {
+        // Lose cards we are giving (which is what sender wants)
+        for (const giveId of decodedProposal.want) {
+          const item = invMap[giveId];
+          if (item) {
+            await db.inventory.put({
+              ...item,
+              owned: Math.max(0, item.owned - 1)
+            });
+          }
+        }
+        // Gain cards we are receiving (which is what sender gives)
+        for (const gainId of decodedProposal.give) {
+          const item = invMap[gainId] || { stickerId: gainId, owned: 0, pasted: false, albumId: activeId };
+          await db.inventory.put({
+            ...item,
+            owned: item.owned + 1
+          });
+        }
+      });
 
       // 2. Generate confirmation code
       const confirmPayload = {
@@ -209,16 +219,26 @@ export default function TradeCenter({ progress, refreshProgress }) {
       });
 
       // Process inventory updates for host:
-      // Lose cards we gave (which is decodedConfirmation.want)
-      for (const giveId of decodedConfirmation.want) {
-        const item = invMap[giveId];
-        await db.inventory.update(giveId, { owned: item.owned - 1 });
-      }
-      // Gain cards we received (which is decodedConfirmation.give)
-      for (const gainId of decodedConfirmation.give) {
-        const item = invMap[gainId] || { owned: 0, pasted: false };
-        await db.inventory.update(gainId, { owned: item.owned + 1 });
-      }
+      await db.transaction('rw', db.inventory, async () => {
+        // Lose cards we gave (which is decodedConfirmation.want)
+        for (const giveId of decodedConfirmation.want) {
+          const item = invMap[giveId];
+          if (item) {
+            await db.inventory.put({
+              ...item,
+              owned: Math.max(0, item.owned - 1)
+            });
+          }
+        }
+        // Gain cards we received (which is decodedConfirmation.give)
+        for (const gainId of decodedConfirmation.give) {
+          const item = invMap[gainId] || { stickerId: gainId, owned: 0, pasted: false, albumId: activeId };
+          await db.inventory.put({
+            ...item,
+            owned: item.owned + 1
+          });
+        }
+      });
 
       const activeId2 = getActiveAlbumId() || 'album-legacy';
       const tradesKey = `trades_${activeId2}`;
@@ -370,19 +390,27 @@ export default function TradeCenter({ progress, refreshProgress }) {
         invMap[item.stickerId] = item;
       });
 
-      // Deduct giveIds from inventory
-      for (const giveId of giveIds) {
-        const item = invMap[giveId];
-        if (item) {
-          await db.inventory.update(giveId, { owned: item.owned - 1 });
+      await db.transaction('rw', db.inventory, async () => {
+        // Deduct giveIds from inventory
+        for (const giveId of giveIds) {
+          const item = invMap[giveId];
+          if (item) {
+            await db.inventory.put({
+              ...item,
+              owned: Math.max(0, item.owned - 1)
+            });
+          }
         }
-      }
 
-      // Add gainIds to inventory
-      for (const gainId of gainIds) {
-        const item = invMap[gainId] || { owned: 0, pasted: false };
-        await db.inventory.update(gainId, { owned: item.owned + 1 });
-      }
+        // Add gainIds to inventory
+        for (const gainId of gainIds) {
+          const item = invMap[gainId] || { stickerId: gainId, owned: 0, pasted: false, albumId: activeId };
+          await db.inventory.put({
+            ...item,
+            owned: item.owned + 1
+          });
+        }
+      });
 
       const tradesKey = `trades_${activeId}`;
       const currentTrades = parseInt(localStorage.getItem(tradesKey) || '0', 10);

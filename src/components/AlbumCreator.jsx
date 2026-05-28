@@ -828,13 +828,16 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
       
       // 2. Export JSON if requested
       if (shouldExport) {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(albumData, null, 2));
+        const jsonStr = JSON.stringify(albumData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
         const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `${finalName.toLowerCase().replace(/\s+/g, '-')}-album.json`);
+        downloadAnchor.href = url;
+        downloadAnchor.download = `${finalName.toLowerCase().replace(/\s+/g, '-')}-album.json`;
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
-        downloadAnchor.remove();
+        document.body.removeChild(downloadAnchor);
+        URL.revokeObjectURL(url);
       }
 
       setSuccess(`¡Álbum "${finalName}" creado con éxito con ${count} figuritas!`);
@@ -1424,17 +1427,35 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingRight: '6px', borderRight: '1px solid var(--border-color)', marginRight: '6px', justifyContent: 'center' }}>
                       <button 
                         onClick={() => moveSticker(sticker.id, 'up')}
-                        disabled={isTop}
-                        style={{ padding: '2px 4px', fontSize: '9px', border: 'none', background: 'none', color: isTop ? '#9c9284' : 'var(--theme-accent)', opacity: isTop ? 0.25 : 1, cursor: isTop ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-                        title="Subir en el álbum"
+                        disabled={isTop || autoSort}
+                        style={{ 
+                          padding: '2px 4px', 
+                          fontSize: '9px', 
+                          border: 'none', 
+                          background: 'none', 
+                          color: (isTop || autoSort) ? '#9c9284' : 'var(--theme-accent)', 
+                          opacity: (isTop || autoSort) ? 0.25 : 1, 
+                          cursor: (isTop || autoSort) ? 'not-allowed' : 'pointer', 
+                          fontWeight: 'bold' 
+                        }}
+                        title={autoSort ? "Auto-ordenar activo (desactívalo para ordenar manualmente)" : "Subir en el álbum"}
                       >
                         ▲
                       </button>
                       <button 
                         onClick={() => moveSticker(sticker.id, 'down')}
-                        disabled={isBottom}
-                        style={{ padding: '2px 4px', fontSize: '9px', border: 'none', background: 'none', color: isBottom ? '#9c9284' : 'var(--theme-accent)', opacity: isBottom ? 0.25 : 1, cursor: isBottom ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-                        title="Bajar en el álbum"
+                        disabled={isBottom || autoSort}
+                        style={{ 
+                          padding: '2px 4px', 
+                          fontSize: '9px', 
+                          border: 'none', 
+                          background: 'none', 
+                          color: (isBottom || autoSort) ? '#9c9284' : 'var(--theme-accent)', 
+                          opacity: (isBottom || autoSort) ? 0.25 : 1, 
+                          cursor: (isBottom || autoSort) ? 'not-allowed' : 'pointer', 
+                          fontWeight: 'bold' 
+                        }}
+                        title={autoSort ? "Auto-ordenar activo (desactívalo para ordenar manualmente)" : "Bajar en el álbum"}
                       >
                         ▼
                       </button>

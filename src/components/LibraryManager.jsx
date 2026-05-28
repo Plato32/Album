@@ -91,13 +91,16 @@ export default function LibraryManager({ onAlbumActivated, onNavigateToCreator }
         stickers: cleanStickers
       };
 
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+      const jsonStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `${albumName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_album.json`);
+      downloadAnchor.href = url;
+      downloadAnchor.download = `${albumName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_album.json`;
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
-      downloadAnchor.remove();
+      document.body.removeChild(downloadAnchor);
+      URL.revokeObjectURL(url);
     } catch (err) {
       alert("Error al exportar definición del álbum: " + err.message);
     }

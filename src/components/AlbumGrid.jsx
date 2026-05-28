@@ -557,23 +557,29 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
   const handleSelectBg = async (bgName) => {
     setAlbumBg(bgName);
-    const metadata = await db.albumMetadata.get('active');
-    if (metadata) {
-      await db.albumMetadata.put({
-        ...metadata,
-        albumBg: bgName
-      });
+    const activeId = getActiveAlbumId();
+    if (activeId) {
+      const metadata = await db.albumMetadata.get(activeId);
+      if (metadata) {
+        await db.albumMetadata.put({
+          ...metadata,
+          albumBg: bgName
+        });
+      }
     }
   };
 
   const handleSelectColor = async (colorName) => {
     setAlbumColor(colorName);
-    const metadata = await db.albumMetadata.get('active');
-    if (metadata) {
-      await db.albumMetadata.put({
-        ...metadata,
-        albumColor: colorName
-      });
+    const activeId = getActiveAlbumId();
+    if (activeId) {
+      const metadata = await db.albumMetadata.get(activeId);
+      if (metadata) {
+        await db.albumMetadata.put({
+          ...metadata,
+          albumColor: colorName
+        });
+      }
     }
   };
 
@@ -587,13 +593,16 @@ export default function AlbumGrid({ progress, refreshProgress }) {
       setCustomBgImage(base64Data);
       setAlbumBg('custom');
       
-      const metadata = await db.albumMetadata.get('active');
-      if (metadata) {
-        await db.albumMetadata.put({
-          ...metadata,
-          albumBg: 'custom',
-          customBgImage: base64Data
-        });
+      const activeId = getActiveAlbumId();
+      if (activeId) {
+        const metadata = await db.albumMetadata.get(activeId);
+        if (metadata) {
+          await db.albumMetadata.put({
+            ...metadata,
+            albumBg: 'custom',
+            customBgImage: base64Data
+          });
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -604,21 +613,27 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     if (albumBg === 'custom') {
       handleSelectBg('scrapbook');
     }
-    const metadata = await db.albumMetadata.get('active');
-    if (metadata) {
-      const { customBgImage, ...rest } = metadata;
-      await db.albumMetadata.put(rest);
+    const activeId = getActiveAlbumId();
+    if (activeId) {
+      const metadata = await db.albumMetadata.get(activeId);
+      if (metadata) {
+        const { customBgImage, ...rest } = metadata;
+        await db.albumMetadata.put(rest);
+      }
     }
   };
 
   const handleSelectLayoutStyle = async (style) => {
     setLayoutStyle(style);
-    const metadata = await db.albumMetadata.get('active');
-    if (metadata) {
-      await db.albumMetadata.put({
-        ...metadata,
-        layoutStyle: style
-      });
+    const activeId = getActiveAlbumId();
+    if (activeId) {
+      const metadata = await db.albumMetadata.get(activeId);
+      if (metadata) {
+        await db.albumMetadata.put({
+          ...metadata,
+          layoutStyle: style
+        });
+      }
     }
   };
 
@@ -1953,6 +1968,69 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     );
   };
 
+  const renderStickyNotes = (pageIndex) => {
+    return notes.filter(n => n.page === pageIndex).map(note => {
+      const rotation = note.rotation || 0;
+      return (
+        <div
+          key={note.id}
+          className={`sticky-note note-color-${note.color} ${isEditMode ? 'is-editable' : ''}`}
+          style={{
+            position: 'absolute',
+            left: `${note.x}%`,
+            top: `${note.y}%`,
+            transform: `rotate(${rotation}deg)`,
+            transformOrigin: 'center center',
+            zIndex: 50,
+            cursor: isEditMode ? 'move' : 'default',
+          }}
+          onMouseDown={(e) => handleNoteMouseDown(e, note)}
+          onTouchStart={(e) => handleNoteTouchStart(e, note)}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {isEditMode ? (
+            <div className="note-edit-controls" onClick={(e) => e.stopPropagation()}>
+              <select 
+                value={note.color} 
+                onChange={(e) => handleUpdateNote(note.id, { color: e.target.value })}
+                className="note-color-select"
+              >
+                <option value="yellow">💛</option>
+                <option value="pink">💗</option>
+                <option value="green">💚</option>
+                <option value="blue">💙</option>
+              </select>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteNote(note.id);
+                }}
+                className="note-delete-btn"
+                title="Eliminar Nota"
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
+          
+          {isEditMode ? (
+            <textarea
+              value={note.text}
+              onChange={(e) => handleUpdateNote(note.id, { text: e.target.value })}
+              className="note-textarea print-hidden"
+              maxLength={150}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : null}
+          
+          <div className={`note-text-display ${isEditMode ? 'print-only-block' : ''}`}>
+            {note.text}
+          </div>
+        </div>
+      );
+    });
+  };
+
   const renderPage = (pageIndex) => {
     const allGroups = getGroupedStickers(stickers);
     const groups = allGroups.filter(g => g.page === pageIndex);
@@ -2057,68 +2135,6 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             </div>
           );
         })}
-
-        {/* Render Sticky Notes */}
-        {notes.filter(n => n.page === pageIndex).map(note => {
-          const rotation = note.rotation || 0;
-          return (
-            <div
-              key={note.id}
-              className={`sticky-note note-color-${note.color} ${isEditMode ? 'is-editable' : ''}`}
-              style={{
-                position: 'absolute',
-                left: `${note.x}%`,
-                top: `${note.y}%`,
-                transform: `rotate(${rotation}deg)`,
-                transformOrigin: 'center center',
-                zIndex: 50,
-                cursor: isEditMode ? 'move' : 'default',
-              }}
-              onMouseDown={(e) => handleNoteMouseDown(e, note)}
-              onTouchStart={(e) => handleNoteTouchStart(e, note)}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {isEditMode ? (
-                <div className="note-edit-controls" onClick={(e) => e.stopPropagation()}>
-                  <select 
-                    value={note.color} 
-                    onChange={(e) => handleUpdateNote(note.id, { color: e.target.value })}
-                    className="note-color-select"
-                  >
-                    <option value="yellow">💛</option>
-                    <option value="pink">💗</option>
-                    <option value="green">💚</option>
-                    <option value="blue">💙</option>
-                  </select>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteNote(note.id);
-                    }}
-                    className="note-delete-btn"
-                    title="Eliminar Nota"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : null}
-              
-              {isEditMode ? (
-                <textarea
-                  value={note.text}
-                  onChange={(e) => handleUpdateNote(note.id, { text: e.target.value })}
-                  className="note-textarea print-hidden"
-                  maxLength={150}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : null}
-              
-              <div className={`note-text-display ${isEditMode ? 'print-only-block' : ''}`}>
-                {note.text}
-              </div>
-            </div>
-          );
-        })}
       </div>
     );
   };
@@ -2213,19 +2229,21 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 </button>
               </div>
 
-              {/* Scrapbook Edit Mode Button */}
-              {layoutStyle === 'scrapbook' && (
-                <button
-                  onClick={() => {
-                    setIsEditMode(!isEditMode);
-                    setSelectedGroup(null);
-                  }}
-                  className={`btn-secondary ${isEditMode ? 'nav-link-btn-active' : ''}`}
-                  style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}
-                >
-                  <Move size={12} /> {isEditMode ? 'Guardar Diseño' : 'Editar Diseño 🔧'}
-                </button>
-              )}
+              {/* Edit Mode Button */}
+              <button
+                onClick={() => {
+                  setIsEditMode(!isEditMode);
+                  setSelectedGroup(null);
+                }}
+                className={`btn-secondary ${isEditMode ? 'nav-link-btn-active' : ''}`}
+                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold' }}
+              >
+                <Move size={12} /> {
+                  layoutStyle === 'scrapbook'
+                    ? (isEditMode ? 'Guardar Diseño' : 'Editar Diseño 🔧')
+                    : (isEditMode ? 'Guardar Notas' : 'Editar Notas 📝')
+                }
+              </button>
 
               <button
                 onClick={() => setShowCustomizer(!showCustomizer)}
@@ -2513,6 +2531,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <div className="page-num page-num-left">Pág. {currentPage * 2 + 1}</div>
                 <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {layoutStyle === 'scrapbook' ? renderPage(currentPage * 2) : renderGridPage(currentPage * 2)}
+                  {renderStickyNotes(currentPage * 2)}
                 </div>
               </div>
 
@@ -2540,6 +2559,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                 <div className="page-num page-num-right">Pág. {currentPage * 2 + 2}</div>
                 <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {layoutStyle === 'scrapbook' ? renderPage(currentPage * 2 + 1) : renderGridPage(currentPage * 2 + 1)}
+                  {renderStickyNotes(currentPage * 2 + 1)}
                 </div>
               </div>
             </div>
@@ -2866,6 +2886,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             </div>
             <div style={{ flexGrow: 1, position: 'relative', marginTop: '1rem', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               {layoutStyle === 'scrapbook' ? renderPage(pageIdx) : renderGridPage(pageIdx)}
+              {renderStickyNotes(pageIdx)}
             </div>
           </div>
         ))}
