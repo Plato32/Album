@@ -105,6 +105,7 @@ p {
 .mx-auto { margin-left: auto; margin-right: auto; }
 .text-center { text-align: center; }
 .w-full { width: 100%; }
+.h-full { height: 100%; }
 .flex-grow { flex-grow: 1; }
 
 /* Grid Layouts */
@@ -493,16 +494,24 @@ p {
   align-items: center;
   background: #ffffff;
   border: 1.5px solid var(--border-color);
-  border-radius: 10px;
-  padding: 8px;
+  border-radius: 12px;
+  padding: 12px;
   margin-bottom: 8px;
+  transition: all var(--transition-normal) ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.sticker-editor-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--theme-accent);
 }
 
 .sticker-editor-card img {
-  width: 50px;
-  height: 68px;
-  object-fit: cover;
-  border-radius: 6px;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  border-radius: 8px;
   border: 1.5px solid var(--border-color);
   background: #fafafa;
 }
@@ -643,7 +652,7 @@ p {
 
 .sticker-slot {
   position: relative;
-  aspect-ratio: 3/4;
+  aspect-ratio: auto;
   border-radius: 10px;
   border: 1.5px dashed var(--border-color);
   background: #f9f8f4;
@@ -1077,7 +1086,7 @@ p {
 .premium-card-img-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   transition: transform 0.5s ease;
 }
@@ -2001,5 +2010,32 @@ p {
 /* Zoom Modal Image containment to prevent cropping */
 .zoom-card-container img {
   object-fit: contain !important;
+}
+
+/* Pasted cleaner style rules */
+.sticker-slot.is-pasted {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  aspect-ratio: auto !important;
+}
+.sticker-slot.is-pasted.rare-sticker-slot {
+  border: none !important;
+  background: transparent !important;
+  animation: none !important;
+}
+.sticker-slot-pair.is-pasted-all {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.sticker-slot-quad.is-pasted-all {
+  border: 2px solid var(--theme-accent) !important;
+  background: #ffffff !important;
+  padding: 0px !important;
+  box-shadow: 0 10px 25px rgba(226, 162, 39, 0.15), var(--shadow-sm) !important;
+  animation: completed-glow 2.5s ease-in-out infinite alternate !important;
 }
 

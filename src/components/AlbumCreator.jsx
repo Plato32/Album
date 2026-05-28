@@ -15,6 +15,9 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
   const [autoSort, setAutoSort] = useState(false);
   const [autoName, setAutoName] = useState(false);
   const [stickersPerPage, setStickersPerPage] = useState(6);
+  const [layoutStyle, setLayoutStyle] = useState('grid'); // 'grid' or 'scrapbook'
+  const [currentPage, setCurrentPage] = useState(0);
+  const [selectedStickerId, setSelectedStickerId] = useState(null);
 
   // Handle image uploads
   const handleImageUpload = (e) => {
@@ -75,7 +78,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                 group: 'General',
                 parentId: fileParentId,
                 splitType: 'horizontal',
-                splitPart: 'A'
+                splitPart: 'A',
+                aspectRatio: (img.width / 2) / img.height
               },
               {
                 id: Date.now() + Math.random() + 0.1,
@@ -85,7 +89,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                 group: 'General',
                 parentId: fileParentId,
                 splitType: 'horizontal',
-                splitPart: 'B'
+                splitPart: 'B',
+                aspectRatio: (img.width / 2) / img.height
               }
             );
           } else {
@@ -95,7 +100,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
               name: originalName,
               image: base64Data,
               isRare: false,
-              group: 'General'
+              group: 'General',
+              aspectRatio: img.width / img.height
             });
           }
 
@@ -149,7 +155,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: (img.width / 2) / img.height
       };
 
       const splitB = {
@@ -165,7 +172,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: (img.width / 2) / img.height
       };
 
       setStickers(prev => {
@@ -215,7 +223,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / (img.height / 2)
       };
 
       const splitB = {
@@ -231,7 +240,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / (img.height / 2)
       };
 
       setStickers(prev => {
@@ -302,7 +312,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / img.height
       };
 
       const splitB = {
@@ -318,7 +329,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / img.height
       };
 
       const splitC = {
@@ -334,7 +346,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / img.height
       };
 
       const splitD = {
@@ -350,7 +363,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         x: stickerToSplit.x,
         y: stickerToSplit.y,
         width: stickerToSplit.width,
-        rotation: stickerToSplit.rotation
+        rotation: stickerToSplit.rotation,
+        aspectRatio: img.width / img.height
       };
 
       setStickers(prev => {
@@ -573,19 +587,41 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
   };
 
   // Generate displayed sorted stickers list
-  const getProcessedStickers = () => {
+  const getProcessedStickers = (styleOverride = null) => {
+    const activeStyle = styleOverride !== null ? styleOverride : layoutStyle;
     let list = stickers;
     if (autoSort) {
       list = [...stickers].sort((a, b) => {
         return String(a.name || '').localeCompare(String(b.name || ''));
       });
     }
-    return ensureSplitStickersGrouped(list);
+    const grouped = ensureSplitStickersGrouped(list);
+    
+    // Fill coordinates for scrapbook mode if missing
+    if (activeStyle === 'scrapbook') {
+      const layouted = layoutStickers(grouped, stickersPerPage);
+      return grouped.map(s => {
+        const l = layouted.find(x => x.id === s.id);
+        return {
+          ...s,
+          page: s.page !== undefined && s.page !== null ? s.page : (l ? l.page : 0),
+          x: s.x !== undefined && s.x !== null ? s.x : (l ? l.x : 10),
+          y: s.y !== undefined && s.y !== null ? s.y : (l ? l.y : 10),
+          width: s.width !== undefined && s.width !== null ? s.width : (l ? l.width : 24),
+          rotation: s.rotation !== undefined && s.rotation !== null ? s.rotation : (l ? l.rotation : 0)
+        };
+      });
+    }
+    return grouped;
   };
 
   // Create album (save locally and/or export)
-  const handleCreateAlbum = async (shouldExport = false) => {
-    if (!name.trim()) {
+  const handleCreateAlbum = async (shouldExport = false, nameOverride = null, layoutStyleOverride = null, autoNameOverride = null) => {
+    const finalName = nameOverride !== null ? nameOverride.trim() : name.trim();
+    const finalLayoutStyle = layoutStyleOverride !== null ? layoutStyleOverride : layoutStyle;
+    const finalAutoName = autoNameOverride !== null ? autoNameOverride : autoName;
+
+    if (!finalName) {
       setError('Por favor, ingresa un nombre para el álbum.');
       return;
     }
@@ -597,10 +633,10 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
     setError('');
     
     // Use the processed (sorted) list to save/export if autoSort is active
-    let finalStickersList = getProcessedStickers();
+    let finalStickersList = getProcessedStickers(finalLayoutStyle);
 
     // Auto-name stickers sequentially if requested
-    if (autoName) {
+    if (finalAutoName) {
       let stickerIndex = 1;
       const renamedList = [];
       for (let i = 0; i < finalStickersList.length; i++) {
@@ -650,9 +686,10 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
     }
 
     const albumData = {
-      name,
+      name: finalName,
       description,
       stickersPerPage: Number(stickersPerPage),
+      layoutStyle: finalLayoutStyle,
       stickers: finalStickersList.map(s => ({
         name: s.name,
         image: s.image,
@@ -678,13 +715,13 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(albumData, null, 2));
         const downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `${name.toLowerCase().replace(/\s+/g, '-')}-album.json`);
+        downloadAnchor.setAttribute("download", `${finalName.toLowerCase().replace(/\s+/g, '-')}-album.json`);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
       }
 
-      setSuccess(`¡Álbum "${name}" creado con éxito con ${count} figuritas!`);
+      setSuccess(`¡Álbum "${finalName}" creado con éxito con ${count} figuritas!`);
       // Reset creator form
       setName('');
       setDescription('');
@@ -693,6 +730,16 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
     } catch (err) {
       setError('Error al guardar el álbum: ' + err.message);
     }
+  };
+
+  // Quick creation helper
+  const handleQuickCreateAlbum = () => {
+    if (stickers.length === 0) {
+      setError('Debes añadir al menos una figurita primero.');
+      return;
+    }
+    const albumName = name.trim() || `Álbum Rápido (${new Date().toLocaleDateString()})`;
+    handleCreateAlbum(false, albumName, 'grid', true);
   };
 
   // Reset/Clear active album database
@@ -705,6 +752,243 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
   };
 
   const displayedStickers = getProcessedStickers();
+
+  const renderCreatorDoublePage = () => {
+    const list = getProcessedStickers();
+    const withLayout = layoutStyle === 'grid' ? layoutStickers(list, stickersPerPage) : list;
+    
+    // Filter stickers for left page (currentPage * 2) and right page (currentPage * 2 + 1)
+    const leftPageStickers = withLayout.filter(s => s.page === currentPage * 2);
+    const rightPageStickers = withLayout.filter(s => s.page === currentPage * 2 + 1);
+    
+    const totalPagesCount = Math.max(2, Math.ceil(withLayout.length / stickersPerPage) * 2);
+    
+    // Helper to group stickers on a page for rendering pairs/quads unified
+    const getPageGroups = (pageStickers) => {
+      const groups = [];
+      const processedParentIds = new Set();
+      
+      pageStickers.forEach(s => {
+        if (s.parentId) {
+          if (!processedParentIds.has(s.parentId)) {
+            processedParentIds.add(s.parentId);
+            const parts = pageStickers.filter(x => x.parentId === s.parentId);
+            parts.sort((a, b) => String(a.splitPart || '').localeCompare(String(b.splitPart || '')));
+            
+            const first = parts[0];
+            groups.push({
+              type: first.splitType === 'horizontal' ? 'horizontal-pair' : first.splitType === 'vertical' ? 'vertical-pair' : 'quad',
+              stickers: parts,
+              parentId: s.parentId,
+              x: first.x !== undefined ? first.x : 10,
+              y: first.y !== undefined ? first.y : 10,
+              width: first.width !== undefined ? first.width : 24,
+              rotation: first.rotation !== undefined ? first.rotation : 0,
+              page: first.page !== undefined ? first.page : 0
+            });
+          }
+        } else {
+          groups.push({
+            type: 'single',
+            sticker: s,
+            id: s.id,
+            x: s.x !== undefined ? s.x : 10,
+            y: s.y !== undefined ? s.y : 10,
+            width: s.width !== undefined ? s.width : 24,
+            rotation: s.rotation !== undefined ? s.rotation : 0,
+            page: s.page !== undefined ? s.page : 0
+          });
+        }
+      });
+      return groups;
+    };
+    
+    const leftGroups = getPageGroups(leftPageStickers);
+    const rightGroups = getPageGroups(rightPageStickers);
+    
+    const renderPagePreview = (pageIndex, pageGroups) => {
+      return (
+        <div 
+          className="album-page"
+          style={{
+            position: 'relative',
+            flex: 1,
+            minHeight: '400px',
+            height: '400px',
+            overflow: 'hidden',
+            border: selectedStickerId ? '1px dashed rgba(139, 126, 116, 0.2)' : 'none',
+            userSelect: 'none'
+          }}
+          onDragOver={e => e.preventDefault()}
+        >
+          <div className="page-num" style={{ top: '8px', left: pageIndex % 2 === 0 ? '12px' : 'auto', right: pageIndex % 2 !== 0 ? '12px' : 'auto' }}>
+            Pág. {pageIndex + 1}
+          </div>
+          
+          <div style={{ position: 'relative', width: '100%', height: '100%', marginTop: '1.5rem' }}>
+            {pageGroups.map(group => {
+              const isSelected = selectedStickerId && (
+                group.type === 'single'
+                  ? selectedStickerId === group.sticker.id
+                  : group.stickers.some(s => s.id === selectedStickerId)
+              );
+              
+              let aspect = 0.75;
+              if (group.type === 'horizontal-pair') {
+                const [s1, s2] = group.stickers;
+                aspect = (s1.aspectRatio || 0.75) + (s2.aspectRatio || 0.75);
+              } else if (group.type === 'vertical-pair') {
+                const [s1, s2] = group.stickers;
+                aspect = 1 / (1/(s1.aspectRatio || 0.75) + 1/(s2.aspectRatio || 0.75));
+              } else if (group.type === 'quad') {
+                const [s1] = group.stickers;
+                aspect = s1.aspectRatio || 0.75;
+              } else {
+                aspect = group.sticker.aspectRatio || 0.75;
+              }
+              
+              const handlePageMouseDown = (e) => {
+                if (layoutStyle !== 'scrapbook') return;
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const stickerId = group.type === 'single' ? group.sticker.id : group.stickers[0].id;
+                setSelectedStickerId(stickerId);
+                
+                const pageElement = e.currentTarget.offsetParent;
+                if (!pageElement) return;
+                const rect = pageElement.getBoundingClientRect();
+                
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startXPercent = group.x;
+                const startYPercent = group.y;
+                
+                const handlePageMouseMove = (moveEvent) => {
+                  const deltaX = moveEvent.clientX - startX;
+                  const deltaY = moveEvent.clientY - startY;
+                  
+                  const pctDeltaX = (deltaX / rect.width) * 100;
+                  const pctDeltaY = (deltaY / rect.height) * 100;
+                  
+                  let newX = Number((startXPercent + pctDeltaX).toFixed(1));
+                  let newY = Number((startYPercent + pctDeltaY).toFixed(1));
+                  
+                  newX = Math.max(0, Math.min(100 - group.width, newX));
+                  newY = Math.max(0, Math.min(90, newY));
+                  
+                  updateStickerPosition(stickerId, { x: newX, y: newY });
+                };
+                
+                const handlePageMouseUp = () => {
+                  window.removeEventListener('mousemove', handlePageMouseMove);
+                  window.removeEventListener('mouseup', handlePageMouseUp);
+                };
+                
+                window.addEventListener('mousemove', handlePageMouseMove);
+                window.addEventListener('mouseup', handlePageMouseUp);
+              };
+              
+              return (
+                <div
+                  key={group.parentId || (group.sticker ? group.sticker.id : group.id)}
+                  style={{
+                    position: 'absolute',
+                    left: `${group.x}%`,
+                    top: `${group.y}%`,
+                    width: `${group.width}%`,
+                    aspectRatio: aspect,
+                    transform: `translate(-50%, -50%) rotate(${group.rotation || 0}deg)`,
+                    transformOrigin: 'center center',
+                    zIndex: isSelected ? 100 : 10,
+                    cursor: layoutStyle === 'scrapbook' ? 'move' : 'default',
+                    borderRadius: '6px',
+                    border: isSelected ? '2px solid var(--theme-accent)' : '1px dashed rgba(139, 126, 116, 0.4)',
+                    boxShadow: isSelected ? '0 0 0 4px rgba(226, 162, 39, 0.2)' : 'none',
+                    padding: '2px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}
+                  onMouseDown={handlePageMouseDown}
+                >
+                  <div style={{ display: 'flex', width: '100%', height: '100%', gap: '0px', overflow: 'hidden', flexGrow: 1 }}>
+                    {group.type === 'single' && (
+                      <img src={group.sticker.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    )}
+                    {(group.type === 'horizontal-pair' || group.type === 'vertical-pair') && (
+                      <div style={{ display: 'flex', flexDirection: group.type === 'horizontal-pair' ? 'row' : 'column', width: '100%', height: '100%' }}>
+                        <img src={group.stickers[0].image} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'fill' }} />
+                        <img src={group.stickers[1].image} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'fill' }} />
+                      </div>
+                    )}
+                    {group.type === 'quad' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%' }}>
+                        <img src={group.stickers[0].image} alt="" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
+                        {group.stickers[1] && <img src={group.stickers[1].image} alt="" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />}
+                        {group.stickers[2] && <img src={group.stickers[2].image} alt="" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />}
+                        {group.stickers[3] && <img src={group.stickers[3].image} alt="" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '8px', textAlign: 'center', color: 'var(--text-muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginTop: '2px', padding: '0 2px' }}>
+                    {group.type === 'single' ? `Figu ${group.sticker.name.split(' ')[1] || group.sticker.id}` : `Figu ${group.stickers[0].name.split(' ')[1] || group.stickers[0].id}`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+        <h4 className="text-xs font-semibold text-slate-400 mb-2 flex justify-between items-center">
+          <span>Vista Previa del Libro ({layoutStyle === 'grid' ? 'Cuadrícula Automática' : 'Scrapbook Libre'})</span>
+          {layoutStyle === 'scrapbook' && (
+            <span style={{ fontSize: '10px', color: 'var(--theme-accent)', fontWeight: 'bold' }}>
+              💡 ¡Arrastra las figuritas en las páginas para posicionarlas!
+            </span>
+          )}
+        </h4>
+        
+        <div className="album-book" style={{ boxShadow: 'var(--shadow-md)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div className="album-double-page" style={{ minHeight: '400px' }}>
+            <div className="book-binding-crease" style={{ backgroundSize: '100% 20px' }} />
+            
+            {renderPagePreview(currentPage * 2, leftGroups)}
+            {renderPagePreview(currentPage * 2 + 1, rightGroups)}
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={currentPage === 0}
+            onClick={() => setCurrentPage(prev => prev - 1)}
+            style={{ padding: '4px 10px', fontSize: '11px' }}
+          >
+            ◀ Pág. Ant.
+          </button>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+            Páginas {currentPage * 2 + 1} - {currentPage * 2 + 2} de {totalPagesCount}
+          </span>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={(currentPage + 1) * 2 >= totalPagesCount}
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            style={{ padding: '4px 10px', fontSize: '11px' }}
+          >
+            Pág. Sig. ▶
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="creator-grid">
@@ -793,7 +1077,7 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
           </div>
 
           {/* Configurable Page size / Layout */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '4px' }}>
             <div className="input-container">
               <label className="input-label">Figus por Página</label>
               <select 
@@ -810,37 +1094,87 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
               </select>
             </div>
             
-            <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', paddingTop: '20px' }}>
-              <input 
-                type="checkbox"
-                id="auto-split-checkbox"
-                checked={autoSplit}
-                onChange={e => setAutoSplit(e.target.checked)}
-                style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <label htmlFor="auto-split-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Dividir Figus</label>
+            <div className="input-container">
+              <label className="input-label">Diseño Base del Álbum</label>
+              <div style={{ display: 'flex', gap: '4px', background: '#334155', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', width: 'fit-content' }}>
+                <button
+                  type="button"
+                  onClick={() => setLayoutStyle('grid')}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: layoutStyle === 'grid' ? 'var(--theme-accent)' : 'transparent',
+                    color: layoutStyle === 'grid' ? '#ffffff' : '#94a3b8',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="Alineamiento automático en cuadrícula"
+                >
+                  📊 Grilla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutStyle('scrapbook')}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: layoutStyle === 'scrapbook' ? 'var(--theme-accent)' : 'transparent',
+                    color: layoutStyle === 'scrapbook' ? '#ffffff' : '#94a3b8',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="Colocación libre interactiva (arrastrar y posicionar)"
+                >
+                  🎨 Scrapbook
+                </button>
+              </div>
             </div>
 
-            <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-              <input 
-                type="checkbox"
-                id="auto-sort-checkbox"
-                checked={autoSort}
-                onChange={e => setAutoSort(e.target.checked)}
-                style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <label htmlFor="auto-sort-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Ordenar Alf.</label>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="checkbox"
+                  id="auto-split-checkbox"
+                  checked={autoSplit}
+                  onChange={e => setAutoSplit(e.target.checked)}
+                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="auto-split-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Dividir Figus</label>
+              </div>
 
-            <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-              <input 
-                type="checkbox"
-                id="auto-name-checkbox"
-                checked={autoName}
-                onChange={e => setAutoName(e.target.checked)}
-                style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <label htmlFor="auto-name-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-nombrar Figus</label>
+              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="checkbox"
+                  id="auto-sort-checkbox"
+                  checked={autoSort}
+                  onChange={e => setAutoSort(e.target.checked)}
+                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="auto-sort-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Ordenar Alf.</label>
+              </div>
+
+              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="checkbox"
+                  id="auto-name-checkbox"
+                  checked={autoName}
+                  onChange={e => setAutoName(e.target.checked)}
+                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="auto-name-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-nombrar Figus</label>
+              </div>
             </div>
           </div>
         </div>
@@ -884,6 +1218,9 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
           </div>
         )}
 
+        {/* Live Double Page Book Preview */}
+        {stickers.length > 0 && renderCreatorDoublePage()}
+
         {/* Loaded Stickers Preview List */}
         {stickers.length > 0 && (
           <div className="flex-grow">
@@ -905,11 +1242,13 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                   ? Math.max(...siblingParts.map(s => displayedStickers.findIndex(x => x.id === s.id)))
                   : idx;
                 const isBottom = maxSiblingIdx === displayedStickers.length - 1;
+                const isSelectedInPreview = selectedStickerId === sticker.id;
 
                 return (
                   <div 
                     key={sticker.id} 
                     className={`sticker-editor-card ${sticker.isRare ? 'rare-sticker-card' : ''}`}
+                    style={isSelectedInPreview ? { borderColor: 'var(--theme-accent)', boxShadow: '0 0 10px rgba(226, 162, 39, 0.15)' } : undefined}
                   >
                     {/* Reorder Controls */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingRight: '6px', borderRight: '1px solid var(--border-color)', marginRight: '6px', justifyContent: 'center' }}>
@@ -934,6 +1273,8 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                     <img 
                       src={sticker.image} 
                       alt="preview" 
+                      onClick={() => setSelectedStickerId(sticker.id)}
+                      style={{ cursor: 'pointer' }}
                     />
                     <div className="flex-grow flex flex-col gap-2" style={{ overflow: 'hidden' }}>
                       <input 
@@ -945,76 +1286,52 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                         style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                       />
 
-                      {/* Position Selectors */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', borderTop: '1px dashed #e5dec9', paddingTop: '6px' }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                            <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>PÁGINA</span>
-                            <select
-                              value={sticker.page || 0}
-                              onChange={(e) => updateStickerPosition(sticker.id, { page: Number(e.target.value) })}
-                              className="text-input"
-                              style={{ padding: '2px 4px', fontSize: '9px', fontWeight: 'bold', border: '1.5px solid #e5dec9', borderRadius: '6px', background: '#ffffff', color: '#6b6359' }}
-                            >
-                              {Array.from({ length: 20 }, (_, pIdx) => (
-                                <option key={pIdx} value={pIdx}>
-                                  Pág {pIdx + 1}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
-                            <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>POSICIÓN X ({Number(sticker.x || 0).toFixed(1)}%)</span>
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max="95" 
-                              step="0.1"
-                              value={sticker.x || 0}
-                              onChange={(e) => updateStickerPosition(sticker.id, { x: Number(e.target.value) })}
-                              style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
-                            <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>POSICIÓN Y ({Number(sticker.y || 0).toFixed(1)}%)</span>
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max="95" 
-                              step="0.1"
-                              value={sticker.y || 0}
-                              onChange={(e) => updateStickerPosition(sticker.id, { y: Number(e.target.value) })}
-                              style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
-                            <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>ANCHO ({Number(sticker.width || 0).toFixed(1)}%)</span>
-                            <input 
-                              type="range" 
-                              min="10" 
-                              max="60" 
-                              step="0.1"
-                              value={sticker.width || 24}
-                              onChange={(e) => updateStickerPosition(sticker.id, { width: Number(e.target.value) })}
-                              style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
-                            <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>ROTACIÓN ({Number(sticker.rotation || 0).toFixed(1)}°)</span>
-                            <input 
-                              type="range" 
-                              min="-45" 
-                              max="45" 
-                              step="0.1"
-                              value={sticker.rotation || 0}
-                              onChange={(e) => updateStickerPosition(sticker.id, { rotation: Number(e.target.value) })}
-                              style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
-                            />
+                      {/* Position Selectors - Only shown in Scrapbook mode */}
+                      {layoutStyle === 'scrapbook' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', borderTop: '1px dashed #e5dec9', paddingTop: '6px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '80px' }}>
+                              <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>PÁGINA</span>
+                              <select
+                                value={sticker.page || 0}
+                                onChange={(e) => updateStickerPosition(sticker.id, { page: Number(e.target.value) })}
+                                className="text-input"
+                                style={{ padding: '2px 4px', fontSize: '9px', fontWeight: 'bold', border: '1.5px solid #e5dec9', borderRadius: '6px', background: '#ffffff', color: '#6b6359', height: '22px' }}
+                              >
+                                {Array.from({ length: 20 }, (_, pIdx) => (
+                                  <option key={pIdx} value={pIdx}>
+                                    Pág {pIdx + 1}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
+                              <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>ANCHO ({Number(sticker.width || 0).toFixed(1)}%)</span>
+                              <input 
+                                type="range" 
+                                min="10" 
+                                max="60" 
+                                step="0.1"
+                                value={sticker.width || 24}
+                                onChange={(e) => updateStickerPosition(sticker.id, { width: Number(e.target.value) })}
+                                style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flexGrow: 1 }}>
+                              <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'var(--text-muted)' }}>ROTACIÓN ({Number(sticker.rotation || 0).toFixed(1)}°)</span>
+                              <input 
+                                type="range" 
+                                min="-45" 
+                                max="45" 
+                                step="0.1"
+                                value={sticker.rotation || 0}
+                                onChange={(e) => updateStickerPosition(sticker.id, { rotation: Number(e.target.value) })}
+                                style={{ width: '100%', height: '4px', accentColor: 'var(--theme-accent)', cursor: 'pointer' }}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       <div className="flex flex-wrap gap-3">
                         {/* Rare Toggle */}
@@ -1087,6 +1404,13 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
 
             {/* Action Buttons */}
             <div className="flex gap-4">
+              <button 
+                onClick={handleQuickCreateAlbum}
+                className="btn-gold flex-grow py-3"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 'bold' }}
+              >
+                ⚡ Creación Rápida
+              </button>
               <button 
                 onClick={() => handleCreateAlbum(false)}
                 className="btn-secondary flex-grow py-3"

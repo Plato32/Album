@@ -36,8 +36,9 @@ export function ensureSplitStickersGrouped(stickersList) {
   const result = [];
   const visited = new Set();
   
-  stickersList.forEach(s => {
-    if (visited.has(s.id)) return;
+  stickersList.forEach((s, idx) => {
+    const stickerId = s.id !== undefined && s.id !== null ? s.id : `temp-${idx}`;
+    if (visited.has(stickerId)) return;
     
     if (s.parentId) {
       // Find all stickers with this parentId
@@ -46,19 +47,20 @@ export function ensureSplitStickersGrouped(stickersList) {
       parts.sort((a, b) => String(a.splitPart || '').localeCompare(String(b.splitPart || '')));
       
       parts.forEach(p => {
+        const partId = p.id !== undefined && p.id !== null ? p.id : `temp-${stickersList.indexOf(p)}`;
         result.push(p);
-        visited.add(p.id);
+        visited.add(partId);
       });
     } else {
       result.push(s);
-      visited.add(s.id);
+      visited.add(stickerId);
     }
   });
   
   return result;
 }
 
-export function layoutStickers(stickersList, stickersPerPage = 6) {
+export function layoutStickers(stickersList, stickersPerPage = 6, forceSequential = false) {
   // First, guarantee that all split parts are consecutive and in order
   const orderedStickers = ensureSplitStickersGrouped(stickersList);
 
@@ -115,11 +117,11 @@ export function layoutStickers(stickersList, stickersPerPage = 6) {
 
     // Force ALL stickers in the split group to have the exact same page, x, y, width, rotation
     const firstMember = group[0];
-    const finalPage = firstMember.page !== undefined ? firstMember.page : page;
-    const finalX = firstMember.x !== undefined ? firstMember.x : x;
-    const finalY = firstMember.y !== undefined ? firstMember.y : y;
-    const finalWidth = firstMember.width !== undefined ? firstMember.width : width;
-    const finalRotation = firstMember.rotation !== undefined ? firstMember.rotation : 0;
+    const finalPage = (!forceSequential && firstMember.page !== undefined && firstMember.page !== null) ? firstMember.page : page;
+    const finalX = (!forceSequential && firstMember.x !== undefined && firstMember.x !== null) ? firstMember.x : x;
+    const finalY = (!forceSequential && firstMember.y !== undefined && firstMember.y !== null) ? firstMember.y : y;
+    const finalWidth = (!forceSequential && firstMember.width !== undefined && firstMember.width !== null) ? firstMember.width : width;
+    const finalRotation = (!forceSequential && firstMember.rotation !== undefined && firstMember.rotation !== null) ? firstMember.rotation : 0;
 
     return group.map(s => ({
       ...s,
@@ -143,11 +145,13 @@ export async function importAlbumDefinition(albumJson) {
     name: albumJson.name || 'Álbum Personalizado',
     description: albumJson.description || 'Mi álbum de figuritas personalizado',
     totalStickers: albumJson.stickers.length,
-    stickersPerPage: albumJson.stickersPerPage || 6
+    stickersPerPage: albumJson.stickersPerPage || 6,
+    layoutStyle: albumJson.layoutStyle || 'scrapbook'
   });
   
   // Insert stickers
   const initialStickers = albumJson.stickers.map((sticker, idx) => ({
+    id: idx + 1, // Assure ID is present for layoutStickers
     name: sticker.name || `Figurita ${idx + 1}`,
     image: sticker.image, // Base64 data
     isRare: !!sticker.isRare,
@@ -162,7 +166,8 @@ export async function importAlbumDefinition(albumJson) {
     rotation: sticker.rotation
   }));
 
-  const stickersToInsert = layoutStickers(initialStickers, albumJson.stickersPerPage || 6).map((s, idx) => ({
+  const forceSequential = albumJson.layoutStyle === 'grid';
+  const stickersToInsert = layoutStickers(initialStickers, albumJson.stickersPerPage || 6, forceSequential).map((s, idx) => ({
     ...s,
     id: idx + 1
   }));

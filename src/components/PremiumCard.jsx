@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 
-export default function PremiumCard({ image, name, isRare, style }) {
+export default function PremiumCard({ image, name, isRare, style, imgStyle }) {
   const cardRef = useRef(null);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
@@ -67,7 +67,10 @@ export default function PremiumCard({ image, name, isRare, style }) {
         height: '100%',
         borderRadius: '10px',
         overflow: 'hidden',
-        border: isRare ? undefined : '1.5px solid #e5dec9',
+        borderTop: isRare ? undefined : '1.5px solid #e5dec9',
+        borderBottom: isRare ? undefined : '1.5px solid #e5dec9',
+        borderLeft: isRare ? undefined : '1.5px solid #e5dec9',
+        borderRight: isRare ? undefined : '1.5px solid #e5dec9',
         backgroundColor: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
@@ -95,6 +98,7 @@ export default function PremiumCard({ image, name, isRare, style }) {
           src={image} 
           alt={name} 
           draggable="false"
+          style={imgStyle}
         />
       </div>
     </div>

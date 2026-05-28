@@ -41,6 +41,7 @@ export default function App() {
         document.body.className = 'theme-color-gold';
       }
       await refreshProgress();
+      setActiveTab('album');
     } else {
       setActiveAlbum(null);
       setActiveTab('creator'); // Default to creator if empty
