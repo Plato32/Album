@@ -5,6 +5,12 @@ import confetti from 'canvas-confetti';
 import PremiumCard from './PremiumCard';
 import { playPasteSound } from '../utils/sounds';
 
+export function getCleanNumber(id) {
+  if (!id) return '';
+  const parts = String(id).split('-');
+  return parts[parts.length - 1];
+}
+
 export default function AlbumGrid({ progress, refreshProgress }) {
   const [stickers, setStickers] = useState([]);
   const [inventory, setInventory] = useState({});
@@ -734,7 +740,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
           {/* Caption Container - ALWAYS visible at the bottom, outside the image */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px' }}>
             <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-              N° {String(sticker.id).padStart(3, '0')}
+              N° {String(getCleanNumber(sticker.id)).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -932,7 +938,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px', padding: '0 2px' }}>
             <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-              N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
+              N° {String(getCleanNumber(s1.id)).padStart(3, '0')} y N° {String(getCleanNumber(s2.id)).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -1185,7 +1191,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', gap: '1px', padding: '0 2px' }}>
             <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-              N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
+              N° {String(getCleanNumber(s1.id)).padStart(3, '0')}, N° {String(getCleanNumber(s2.id)).padStart(3, '0')}, N° {String(getCleanNumber(s3.id)).padStart(3, '0')}, N° {String(getCleanNumber(s4.id)).padStart(3, '0')}
             </span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -1499,7 +1505,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
         <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-          N° {String(sticker.id).padStart(3, '0')}
+          N° {String(getCleanNumber(sticker.id)).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -1661,7 +1667,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
         <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-          N° {String(s1.id).padStart(3, '0')} y N° {String(s2.id).padStart(3, '0')}
+          N° {String(getCleanNumber(s1.id)).padStart(3, '0')} y N° {String(getCleanNumber(s2.id)).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -1936,7 +1942,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', marginTop: '4px', gap: '1px' }}>
         <span style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--theme-accent)', paddingLeft: '2px' }}>
-          N° {String(s1.id).padStart(3, '0')}, N° {String(s2.id).padStart(3, '0')}, N° {String(s3.id).padStart(3, '0')}, N° {String(s4.id).padStart(3, '0')}
+          N° {String(getCleanNumber(s1.id)).padStart(3, '0')}, N° {String(getCleanNumber(s2.id)).padStart(3, '0')}, N° {String(getCleanNumber(s3.id)).padStart(3, '0')}, N° {String(getCleanNumber(s4.id)).padStart(3, '0')}
         </span>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span className="slot-sticker-title" style={{ margin: 0, padding: '0 2px', textAlign: 'left', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
@@ -2619,7 +2625,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                         <div style={{ position: 'absolute', top: '2px', left: '2px', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '8px', fontWeight: 'bold', padding: '1px 4px', borderRadius: '3px' }}>
-                          N° {sticker.id}
+                          N° {getCleanNumber(sticker.id)}
                         </div>
                       </div>
                       
@@ -2831,7 +2837,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
             </div>
 
             <h3 className="font-display font-black text-xl mb-1" style={{ color: '#ffffff' }}>
-              {zoomedSticker.numbers.map(n => `N° ${String(n).padStart(3, '0')}`).join(', ')}
+              {zoomedSticker.numbers.map(n => `N° ${String(getCleanNumber(n)).padStart(3, '0')}`).join(', ')}
             </h3>
             <p className="text-slate-300 font-semibold text-sm">{zoomedSticker.name}</p>
           </div>

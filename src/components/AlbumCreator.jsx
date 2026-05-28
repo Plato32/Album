@@ -19,6 +19,122 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedStickerId, setSelectedStickerId] = useState(null);
 
+  const applyAutoSplitToCurrent = async () => {
+    if (stickers.length === 0) return;
+    setError('');
+    
+    try {
+      const processed = await Promise.all(stickers.map(async (sticker) => {
+        if (!sticker.parentId && !sticker.splitType) {
+          const img = new Image();
+          img.src = sticker.image;
+          await new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+          
+          if (img.width && img.height) {
+            const isHorizontal = img.width / img.height > 1.25;
+            if (isHorizontal) {
+              const originalName = sticker.name;
+              const fileParentId = `${originalName}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+              
+              // Draw Left Half
+              const canvasL = document.createElement('canvas');
+              canvasL.width = img.width / 2;
+              canvasL.height = img.height;
+              const ctxL = canvasL.getContext('2d');
+              ctxL.drawImage(img, 0, 0, img.width / 2, img.height, 0, 0, img.width / 2, img.height);
+              const imageL = canvasL.toDataURL('image/jpeg');
+
+              // Draw Right Half
+              const canvasR = document.createElement('canvas');
+              canvasR.width = img.width / 2;
+              canvasR.height = img.height;
+              const ctxR = canvasR.getContext('2d');
+              ctxR.drawImage(img, img.width / 2, 0, img.width / 2, img.height, 0, 0, img.width / 2, img.height);
+              const imageR = canvasR.toDataURL('image/jpeg');
+
+              return [
+                {
+                  id: Date.now() + Math.random(),
+                  name: `${originalName} (Parte A)`,
+                  image: imageL,
+                  isRare: sticker.isRare,
+                  group: sticker.group || 'General',
+                  parentId: fileParentId,
+                  splitType: 'horizontal',
+                  splitPart: 'A',
+                  aspectRatio: (img.width / 2) / img.height
+                },
+                {
+                  id: Date.now() + Math.random() + 0.1,
+                  name: `${originalName} (Parte B)`,
+                  image: imageR,
+                  isRare: sticker.isRare,
+                  group: sticker.group || 'General',
+                  parentId: fileParentId,
+                  splitType: 'horizontal',
+                  splitPart: 'B',
+                  aspectRatio: (img.width / 2) / img.height
+                }
+              ];
+            }
+          }
+        }
+        return [sticker];
+      }));
+
+      const flattened = processed.flat();
+      setStickers(layoutStickers(flattened, stickersPerPage));
+      setSuccess('Auto-división completada para las figuritas actuales.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e) {
+      console.error(e);
+      setError('Ocurrió un error al intentar auto-dividir las figuritas.');
+    }
+  };
+
+  const applyAutoSortToCurrent = () => {
+    if (stickers.length === 0) return;
+    const sorted = [...stickers].sort((a, b) => {
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    setStickers(layoutStickers(sorted, stickersPerPage));
+    setSuccess('Ordenamiento alfabético aplicado a las figuritas actuales.');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const applyAutoNameToCurrent = () => {
+    if (stickers.length === 0) return;
+    let idx = 1;
+    const renamed = [];
+    const parentIdToName = {};
+
+    for (let i = 0; i < stickers.length; i++) {
+      const s = stickers[i];
+      if (s.parentId) {
+        if (!parentIdToName[s.parentId]) {
+          parentIdToName[s.parentId] = `Figurita ${idx}`;
+          idx++;
+        }
+        renamed.push({
+          ...s,
+          name: `${parentIdToName[s.parentId]} (Parte ${s.splitPart})`
+        });
+      } else {
+        renamed.push({
+          ...s,
+          name: `Figurita ${idx}`
+        });
+        idx++;
+      }
+    }
+    setStickers(renamed);
+    setSuccess('Renombrado secuencial aplicado a las figuritas actuales.');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
   // Handle image uploads
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -1142,38 +1258,92 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
-              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                <input 
-                  type="checkbox"
-                  id="auto-split-checkbox"
-                  checked={autoSplit}
-                  onChange={e => setAutoSplit(e.target.checked)}
-                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="auto-split-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Dividir Figus</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', minWidth: '220px' }}>
+              {/* Auto Split */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flexGrow: 1 }}>
+                  <input 
+                    type="checkbox"
+                    id="auto-split-checkbox"
+                    checked={autoSplit}
+                    onChange={e => {
+                      const val = e.target.checked;
+                      setAutoSplit(val);
+                      if (val) applyAutoSplitToCurrent();
+                    }}
+                    style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="auto-split-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Dividir Figus</label>
+                </div>
+                {stickers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={applyAutoSplitToCurrent}
+                    className="btn-secondary"
+                    style={{ padding: '2px 6px', fontSize: '9px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff' }}
+                    title="Dividir a la mitad las imágenes horizontales añadidas"
+                  >
+                    Dividir
+                  </button>
+                )}
               </div>
 
-              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                <input 
-                  type="checkbox"
-                  id="auto-sort-checkbox"
-                  checked={autoSort}
-                  onChange={e => setAutoSort(e.target.checked)}
-                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="auto-sort-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Ordenar Alf.</label>
+              {/* Auto Sort */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flexGrow: 1 }}>
+                  <input 
+                    type="checkbox"
+                    id="auto-sort-checkbox"
+                    checked={autoSort}
+                    onChange={e => {
+                      const val = e.target.checked;
+                      setAutoSort(val);
+                      if (val) applyAutoSortToCurrent();
+                    }}
+                    style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="auto-sort-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-Ordenar Alf.</label>
+                </div>
+                {stickers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={applyAutoSortToCurrent}
+                    className="btn-secondary"
+                    style={{ padding: '2px 6px', fontSize: '9px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff' }}
+                    title="Ordenar alfabéticamente las figuritas añadidas"
+                  >
+                    Ordenar
+                  </button>
+                )}
               </div>
 
-              <div className="input-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                <input 
-                  type="checkbox"
-                  id="auto-name-checkbox"
-                  checked={autoName}
-                  onChange={e => setAutoName(e.target.checked)}
-                  style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="auto-name-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-nombrar Figus</label>
+              {/* Auto Name */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flexGrow: 1 }}>
+                  <input 
+                    type="checkbox"
+                    id="auto-name-checkbox"
+                    checked={autoName}
+                    onChange={e => {
+                      const val = e.target.checked;
+                      setAutoName(val);
+                      if (val) applyAutoNameToCurrent();
+                    }}
+                    style={{ accentColor: '#b45309', width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="auto-name-checkbox" className="font-semibold text-xs cursor-pointer text-slate-300">Auto-nombrar Figus</label>
+                </div>
+                {stickers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={applyAutoNameToCurrent}
+                    className="btn-secondary"
+                    style={{ padding: '2px 6px', fontSize: '9px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff' }}
+                    title="Nombrar secuencialmente las figuritas añadidas"
+                  >
+                    Nombrar
+                  </button>
+                )}
               </div>
             </div>
           </div>
