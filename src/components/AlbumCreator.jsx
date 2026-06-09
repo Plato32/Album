@@ -1501,7 +1501,7 @@ export default function AlbumCreator({ onAlbumLoaded, activeAlbumName }) {
                               <input 
                                 type="range" 
                                 min="10" 
-                                max="60" 
+                                max="100" 
                                 step="0.1"
                                 value={sticker.width || 24}
                                 onChange={(e) => updateStickerPosition(sticker.id, { width: Number(e.target.value) })}

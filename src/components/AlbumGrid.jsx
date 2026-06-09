@@ -2445,7 +2445,7 @@ export default function AlbumGrid({ progress, refreshProgress }) {
                     <input 
                       type="range"
                       min="10"
-                      max="50"
+                      max="100"
                       step="0.1"
                       value={selectedGroup.width}
                       onChange={(e) => updateGroupCoordinates(selectedGroup, { width: Number(e.target.value) })}
